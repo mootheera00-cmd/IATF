@@ -20,19 +20,21 @@ const db = new sqlite3.Database(dbPath);
 app.use(cors()); 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
-app.use('/api/change-requests', changeRequestsRoutes); 
-app.use('/api/admin', adminRoutes); 
-app.use('/api/workflow', workflowRoutes);
-app.use('/api/auth', authRoutes);
 
-// เปิดให้เข้าถึงไฟล์ PDF ในโฟลเดอร์ uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// ส่ง db ไปให้ routes
+// ส่ง db ไปให้ routes (must be before route registration)
 app.use((req, res, next) => {
   req.db = db;
   next();
 });
+
+// เปิดให้เข้าถึงไฟล์ PDF ในโฟลเดอร์ uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Register routes
+app.use('/api/change-requests', changeRequestsRoutes); 
+app.use('/api/admin', adminRoutes); 
+app.use('/api/workflow', workflowRoutes);
+app.use('/api/auth', authRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

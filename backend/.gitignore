@@ -1,0 +1,8 @@
+node_modules/
+db/*.db
+db/*.db-*
+uploads/doc-original/*
+uploads/doc-pdf/*
+uploads/staging/*
+*.log
+.env

@@ -73,4 +73,94 @@ td { padding: 25px 20px; font-size: 18px; border-bottom: 1px solid #f1f5f9; }
 .modal-form label { display: block; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: #64748b; }
 .btn-submit { width: 100%; padding: 20px; background: var(--primary); color: white; border: none; border-radius: 18px; font-weight: 800; cursor: pointer; font-size: 18px; margin-top: 15px; }
 .btn-submit.revise { background: #10b981; }
-.rev-alert { background: #eff6ff; color: #1e40af; padding: 15px; border-radius: 12px; margin-bottom: 25px; font-size: 15px; display: flex; gap: 10px; align-items: center; }
+.empty-msg { text-align: center; padding: 60px; color: #94a3b8; font-size: 20px; font-weight: 700; }
+.rev-alert { background: #fefce8; padding: 18px; border-radius: 14px; margin-bottom: 25px; color: #854d0e; font-weight: 700; font-size: 16px; }
+
+/* Change Request Styles */
+.cr-id { font-weight: 900; color: #8b5cf6; }
+.status-badge { padding: 6px 14px; border-radius: 10px; font-size: 13px; font-weight: 800; }
+.badge-draft { background: #f3f4f6; color: #6b7280; }
+.badge-submitted { background: #dbeafe; color: #2563eb; }
+.badge-preapproved { background: #e0e7ff; color: #6366f1; }
+.badge-pending { background: #fef3c7; color: #d97706; }
+.badge-approved { background: #d1fae5; color: #059669; }
+.badge-rejected { background: #fee2e2; color: #dc2626; }
+.badge-returned { background: #fef3c7; color: #ea580c; }
+
+.btn-upload { color: #8b5cf6; cursor: pointer; }
+.btn-download { color: #0ea5e9; cursor: pointer; }
+
+/* CR Modal Specific Styles */
+.cr-info { background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 25px; }
+.cr-info p { margin-bottom: 10px; font-size: 16px; }
+.cr-info strong { color: #0f172a; font-weight: 800; }
+.info-alert { background: #dbeafe; color: #1e40af; padding: 15px; border-radius: 10px; margin-top: 15px; font-weight: 600; font-size: 15px; }
+
+.modal-form textarea { 
+  width: 100%; 
+  padding: 16px; 
+  border: 1px solid #e2e8f0; 
+  border-radius: 14px; 
+  font-size: 17px; 
+  margin-bottom: 20px; 
+  outline: none; 
+  font-weight: 600; 
+  font-family: inherit;
+  resize: vertical;
+}
+
+.decision-buttons { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 15px; 
+  margin-bottom: 20px; 
+}
+
+.btn-decision { 
+  padding: 18px; 
+  border: 2px solid #e2e8f0; 
+  border-radius: 14px; 
+  background: white; 
+  font-size: 16px; 
+  font-weight: 700; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 10px;
+  transition: all 0.3s;
+}
+
+.btn-decision:hover { 
+  border-color: var(--primary); 
+  background: #eff6ff;
+}
+
+.btn-decision.selected.approve { 
+  background: #d1fae5; 
+  border-color: #059669; 
+  color: #059669; 
+}
+
+.btn-decision.selected.reject { 
+  background: #fee2e2; 
+  border-color: #dc2626; 
+  color: #dc2626; 
+}
+
+.btn-decision.selected.return { 
+  background: #fef3c7; 
+  border-color: #ea580c; 
+  color: #ea580c; 
+}
+
+.file-info { 
+  background: #f1f5f9; 
+  padding: 12px; 
+  border-radius: 10px; 
+  margin-top: -10px; 
+  margin-bottom: 15px; 
+  font-size: 14px; 
+  font-weight: 600; 
+  color: #475569; 
+}

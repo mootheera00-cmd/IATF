@@ -10,8 +10,13 @@ router.post('/login', (req, res) => {
         return res.status(400).json({ message: 'กรุณากรอกรหัสพนักงานและรหัสผ่าน' });
     }
 
-    // ดึงข้อมูลจาก users ตรงๆ (อ้างอิงตามโครงสร้างที่มีจริง)
-    const sql = `SELECT * FROM users WHERE employee_code = ?`;
+    // ดึงข้อมูลจาก users พร้อม role name
+    const sql = `
+        SELECT u.id, u.employee_code, u.name, u.password_hash, r.name as role 
+        FROM users u 
+        JOIN roles r ON u.role_id = r.id 
+        WHERE u.employee_code = ? AND u.is_active = 1
+    `;
 
     db.get(sql, [employee_code], (err, user) => {
         if (err) {
@@ -23,8 +28,19 @@ router.post('/login', (req, res) => {
             return res.status(401).json({ message: 'ไม่พบรหัสพนักงานนี้ในระบบ' });
         }
 
-        // เช็ครหัสผ่านแบบ Plain Text ตามที่บันทึกไว้
-        if (user.password !== password) {
+        // เช็ครหัสผ่าน - support both plain text and hash for migration
+        const bcrypt = require('bcrypt');
+        let passwordMatch = false;
+        
+        if (user.password_hash.startsWith('$2')) {
+            // It's a bcrypt hash
+            passwordMatch = bcrypt.compareSync(password, user.password_hash);
+        } else {
+            // Plain text password (for backward compatibility during migration)
+            passwordMatch = (user.password_hash === password);
+        }
+        
+        if (!passwordMatch) {
             return res.status(401).json({ message: 'รหัสผ่านไม่ถูกต้อง' });
         }
 
