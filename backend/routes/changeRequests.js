@@ -1,44 +1,104 @@
-// routes/changeRequests.js
+// backend/routes/changeRequests.js
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const { authRequired, requireRole } = require('../middleware/auth');
-const { logAction } = require('../middleware/audit');
+const dcrService = require('../services/dcrService');
+const signedUrlService = require('../services/signedUrlService');
 
-// Create change request
-router.post('/request', authRequired, (req, res) => {
-  const db = req.db;
-  const { document_id, reason } = req.body;
-  const requester_id = req.user.id;
-  const sql = `INSERT INTO change_requests (document_id, requester_id, reason) VALUES (?, ?, ?)`;
-  db.run(sql, [document_id, requester_id, reason], function(err) {
-    if (err) {
-      console.error('create change request error', err);
-      return res.status(500).json({ message: 'DB error' });
+const upload = multer({ dest: 'uploads/tmp/' });
+
+// 1. Create a new change request
+router.post('/', authRequired, async (req, res) => {
+    const { document_id, reason } = req.body;
+    const requester_id = req.user.id;
+    try {
+        const cr_id = await dcrService.createChangeRequest(document_id, requester_id, reason);
+        res.status(201).json({ message: 'Change request created in draft state.', cr_id });
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating change request', error: error.message });
     }
-    const changeId = this.lastID;
-    logAction(db, requester_id, 'REQUEST_CHANGE', 'change_request', changeId, reason);
-    // TODO: notify manager(s) via notifications table / socket
-    res.json({ message: 'Change request created', change_request_id: changeId });
-  });
 });
 
-// Manager decision (approve/reject)
-router.post('/:id/decision', authRequired, requireRole('MANAGER','QMR'), (req, res) => {
-  const db = req.db;
-  const changeId = req.params.id;
-  const { decision, note } = req.body; // decision: APPROVED or REJECTED
-  const managerId = req.user.id;
-  const sql = `UPDATE change_requests SET manager_id = ?, manager_decision = ?, manager_decision_at = CURRENT_TIMESTAMP, status = ? WHERE id = ?`;
-  const status = decision === 'APPROVED' ? 'APPROVED' : 'REJECTED';
-  db.run(sql, [managerId, decision, status, changeId], function(err) {
-    if (err) {
-      console.error('manager decision error', err);
-      return res.status(500).json({ message: 'DB error' });
+// 2. Submit a draft change request
+router.post('/:id/submit', authRequired, async (req, res) => {
+    const { id: cr_id } = req.params;
+    const requester_id = req.user.id;
+    try {
+        await dcrService.submitChangeRequest(cr_id, requester_id);
+        res.status(200).json({ message: 'Change request submitted for pre-approval.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error submitting change request', error: error.message });
     }
-    logAction(db, managerId, `MANAGER_${decision}`, 'change_request', changeId, note || '');
-    // TODO: notify requester
-    res.json({ message: `Change request ${decision.toLowerCase()}` });
-  });
+});
+
+// 3. Manager makes initial decision (Pre-Approve / Reject)
+router.post('/:id/decision', authRequired, requireRole('MANAGER', 'QMR'), async (req, res) => {
+    const { id: cr_id } = req.params;
+    const manager_id = req.user.id;
+    const { decision, comment } = req.body; // 'Pre-Approve' or 'Reject'
+    try {
+        const result = await dcrService.makeInitialDecision(cr_id, manager_id, decision, comment);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Error making initial decision', error: error.message });
+    }
+});
+
+// 4. Requester uploads revised documents
+router.post('/:id/upload', authRequired, upload.fields([{ name: 'source', maxCount: 1 }, { name: 'pdf', maxCount: 1 }]), async (req, res) => {
+    const { id: cr_id } = req.params;
+    const requester_id = req.user.id;
+    try {
+        await dcrService.uploadRevision(cr_id, requester_id, req.files);
+        res.status(200).json({ message: 'Files uploaded, pending final approval.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error uploading files', error: error.message });
+    }
+});
+
+// 5. Manager makes final review (Approve / Return for Revision)
+router.post('/:id/review', authRequired, requireRole('MANAGER', 'QMR'), async (req, res) => {
+    const { id: cr_id } = req.params;
+    const manager_id = req.user.id;
+    const { decision, comment } = req.body; // 'Approve' or 'Return'
+    try {
+        await dcrService.makeFinalReview(cr_id, manager_id, decision, comment);
+        res.status(200).json({ message: `Change request has been ${decision.toLowerCase()}.` });
+    } catch (error) {
+        res.status(500).json({ message: 'Error making final review', error: error.message });
+    }
+});
+
+// Endpoint for downloading files using a signed URL
+router.get('/download/:token', async (req, res) => {
+    const { token } = req.params;
+    try {
+        const tokenData = await signedUrlService.verifySignedUrl(token);
+        if (!tokenData) {
+            return res.status(404).send('Invalid or expired download link.');
+        }
+        // Assuming file_uri is a path relative to the project root
+        const filePath = path.resolve(__dirname, '..', tokenData.file_uri);
+        res.download(filePath);
+    } catch (error) {
+        res.status(500).json({ message: 'Error downloading file', error: error.message });
+    }
+});
+
+// Get CR details
+router.get('/:id', authRequired, async (req, res) => {
+    const { id: cr_id } = req.params;
+    try {
+        const cr = await dcrService.getChangeRequest(cr_id);
+        if (!cr) {
+            return res.status(404).json({ message: 'Change request not found.' });
+        }
+        res.status(200).json(cr);
+    } catch (error) {
+        res.status(500).json({ message: 'Error getting change request details', error: error.message });
+    }
 });
 
 module.exports = router;

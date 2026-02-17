@@ -1,0 +1,1 @@
+const crypto=require('crypto'); module.exports=(n=32)=>crypto.randomBytes(n).toString('base64url');
