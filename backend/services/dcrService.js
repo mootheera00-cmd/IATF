@@ -136,10 +136,17 @@ const dcrService = {
         `, [cr.document_id]);
         
         // Generate next revision code (simple incrementing: A -> B -> C, etc.)
+        // For production, consider more robust versioning like numeric or AA, AB, etc.
         let newRevCode = 'A';
         if (currentRev && currentRev.rev_code) {
             const currentCode = currentRev.rev_code.charCodeAt(0);
-            newRevCode = String.fromCharCode(currentCode + 1);
+            if (currentCode >= 90) { // 'Z'
+                // If we've reached Z, start with AA, AB, etc. (simplified approach)
+                // In production, implement full multi-character versioning
+                newRevCode = 'AA';
+            } else {
+                newRevCode = String.fromCharCode(currentCode + 1);
+            }
         }
 
         const revResult = await run(`

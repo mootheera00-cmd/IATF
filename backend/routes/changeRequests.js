@@ -152,7 +152,7 @@ router.get('/pdf/:document_id/:revision_id', authRequired, async (req, res) => {
     try {
         // Get the revision
         const revision = await dcrService.getRevision(revision_id);
-        if (!revision || revision.document_id != document_id) {
+        if (!revision || revision.document_id !== parseInt(document_id, 10)) {
             return res.status(404).send('Revision not found.');
         }
         
