@@ -25,9 +25,9 @@ function get(sql, params = []) {
     console.log('📦 DB File :', DB_PATH);
     await run('PRAGMA foreign_keys = ON;');
 
-    // หา role MANAGER / USER
-    const manager = await get(`SELECT id FROM roles WHERE name = 'MANAGER'`);
-    const user    = await get(`SELECT id FROM roles WHERE name = 'USER'`);
+    // หา role Manager / Engineer
+    const manager = await get(`SELECT id FROM roles WHERE name = 'Manager'`);
+    const user    = await get(`SELECT id FROM roles WHERE name = 'Engineer'`);
 
     if (!manager || !user) throw new Error('Roles not seeded yet. Run seed_admin.js first.');
 

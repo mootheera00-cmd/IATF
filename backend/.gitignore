@@ -1,0 +1,30 @@
+# Environment – NEVER commit secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+
+# SQLite database (contains real data)
+db/*.db
+db/*.db-shm
+db/*.db-wal
+
+# Uploaded files (binary, large, user data)
+uploads/
+
+# Secure storage
+secure_storage/
+
+# Logs
+*.log
+logs/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

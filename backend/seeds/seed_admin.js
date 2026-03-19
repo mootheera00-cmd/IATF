@@ -31,7 +31,7 @@ function get(sql, params = []) {
     await run('PRAGMA foreign_keys = ON;');
 
     // 1) Ensure base roles
-    const baseRoles = ['ADMIN', 'MANAGER', 'USER'];
+    const baseRoles = ['ADMIN', 'Engineer', 'Leader', 'Assistant Manager', 'Manager', 'President', 'Document Controller'];
     for (const r of baseRoles) {
       await run(
         `INSERT OR IGNORE INTO roles (name) VALUES (?)`,

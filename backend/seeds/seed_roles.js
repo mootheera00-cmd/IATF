@@ -5,7 +5,15 @@ const dbPath = path.resolve(__dirname, '..', 'db', 'nskiatf_doccontrol.db');
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
-    const roles = ['ADMIN', 'MANAGER', 'USER', 'QMR'];
+    const roles = [
+        'ADMIN',
+        'Engineer',
+        'Leader',
+        'Assistant Manager',
+        'Manager',
+        'President',
+        'Document Controller'
+    ];
     const sql = `INSERT OR IGNORE INTO roles (name) VALUES (?)`;
     roles.forEach(role => {
         db.run(sql, [role], (err) => {

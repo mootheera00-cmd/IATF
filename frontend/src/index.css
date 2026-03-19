@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+@layer components {
+  /* Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+
+  /* Form Elements */
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all duration-200 bg-white;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200 font-medium shadow-sm hover:shadow active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors duration-200 font-medium shadow-sm hover:shadow active:shadow-none;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply bg-white rounded-xl border border-slate-200 shadow-sm p-6;
+  }
+
+  /* ── Scrollable table wrapper with frozen header ────────────────
+     Use <div className="table-wrap"> instead of <div className="overflow-x-auto">
+     around any <table>. The thead will stick to the top while both
+     horizontal and vertical scrolling are available.
+  ──────────────────────────────────────────────────────────────── */
+  .table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+    position: relative;
+  }
+
+  /* Give the <thead> element a fallback background so sticky cells
+     are never transparent. Individual <tr> bg-* classes still show
+     because they are more specific on the element itself. */
+  .table-wrap thead {
+    background-color: #f8fafc; /* slate-50 fallback */
+  }
+
+  /* Freeze every thead cell.
+     background-color is set explicitly here so the cell is never
+     transparent when rows scroll underneath it.
+     We use a layered approach:
+       1. Base: slate-50 white (most light-header tables)
+       2. bg-* on <tr>/<th> from Tailwind overrides this via specificity
+          BUT sticky cells lose their <tr> background in most browsers,
+          so we mirror common header colors with extra rules below. */
+  .table-wrap thead th,
+  .table-wrap thead td {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f8fafc; /* slate-50 — safe default */
+    box-shadow: inset 0 -1px 0 #e2e8f0; /* bottom border line */
+  }
+
+  /* Dark headers (e.g. TrainingPlan bg-slate-800/700, MaintenancePlan bg-slate-700) */
+  .table-wrap thead tr.bg-slate-800 th,
+  .table-wrap thead tr.bg-slate-800 td { background-color: #1e293b; color: #fff; }
+  .table-wrap thead tr.bg-slate-700 th,
+  .table-wrap thead tr.bg-slate-700 td { background-color: #334155; color: #fff; }
+  .table-wrap thead tr.bg-slate-600 th,
+  .table-wrap thead tr.bg-slate-600 td { background-color: #475569; color: #fff; }
+
+  /* Coloured sub-headers (TrainingPlan Q1/Q2, Q3/Q4) */
+  .table-wrap thead tr.bg-blue-700   th,
+  .table-wrap thead tr.bg-blue-700   td { background-color: #1d4ed8; color: #fff; }
+  .table-wrap thead tr.bg-indigo-700 th,
+  .table-wrap thead tr.bg-indigo-700 td { background-color: #4338ca; color: #fff; }
+
+  /* Gradient header (DCRList from-slate-50 to-slate-100) */
+  .table-wrap thead tr.bg-gradient-to-r th,
+  .table-wrap thead tr.bg-gradient-to-r td { background-color: #f1f5f9; } /* slate-100 */
+
+  /* Slightly-off-white headers */
+  .table-wrap thead tr.bg-slate-100 th,
+  .table-wrap thead tr.bg-slate-100 td { background-color: #f1f5f9; }
+  .table-wrap thead tr.bg-slate-50 th,
+  .table-wrap thead tr.bg-slate-50 td  { background-color: #f8fafc; }
+
+  /* Multi-row thead: second row sits immediately below the first row.
+     Default assumes first-row height ≈ 40 px; override with
+     style={{"--thead-row1-height":"Xpx"}} on the .table-wrap div if needed. */
+  .table-wrap thead tr:nth-child(2) th,
+  .table-wrap thead tr:nth-child(2) td {
+    top: var(--thead-row1-height, 40px);
+  }
+
+  /* History-page scrollable bottom panel:
+     Makes the schedule table card and table-wrap fill the remaining
+     panel height, so thead sticky works while only tbody rows scroll. */
+  .panel-scroll {
+    display: flex;
+    flex-direction: column;
+  }
+  /* The schedule card (bg-white rounded-xl … overflow-hidden) stretches to fill */
+  .panel-scroll > .bg-white {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* table-wrap fills the card and provides the scroll context for sticky thead */
+  .panel-scroll .table-wrap {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+}

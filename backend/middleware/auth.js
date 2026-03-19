@@ -2,6 +2,14 @@
 const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.SECRET_KEY || 'dev-secret';
 
+function normalizeRoleName(role) {
+  return String(role || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 function authRequired(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -22,7 +30,15 @@ function authRequired(req, res, next) {
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
-    if (!allowedRoles.includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
+    const currentRole = normalizeRoleName(req.user.role);
+    const allowed = allowedRoles
+      .flat()
+      .map(normalizeRoleName)
+      .filter(Boolean);
+
+    if (!allowed.includes(currentRole)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     next();
   };
 }

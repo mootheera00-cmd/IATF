@@ -7,7 +7,25 @@ const dotenv = require('dotenv');
 dotenv.config();
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+const JWT_SECRET = process.env.SECRET_KEY || 'dev-secret';
+const ALLOWED_ROLES = [
+  'ADMIN',
+  'ENGINEER',
+  'Engineer',
+  'LEADER',
+  'Leader',
+  'ASSISTANT_MANAGER',
+  'Assistant Manager',
+  'MANAGER',
+  'Manager',
+  'DOCUMENT_CONTROL',
+  'Document Controller',
+  'PRESIDENT',
+  'President',
+  'USER',
+  'QMR',
+  'CHANGE_REQUESTER'
+];
 
 // ---------- Middleware: Auth ----------
 function authRequired(req, res, next) {
@@ -74,6 +92,10 @@ async function ensureRoleId(db, { role_id, role }) {
   if (role_id) return role_id;
   if (!role) return null;
 
+  if (!ALLOWED_ROLES.includes(role)) {
+    throw new Error('Invalid role');
+  }
+
   // ถ้ามีชื่อ role เข้ามา: สร้างถ้าไม่เคยมี
   await run(db, `CREATE TABLE IF NOT EXISTS roles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +118,7 @@ router.get('/', authRequired, requireAdmin, async (req, res) => {
     const rows = await all(
       db,
       `SELECT u.id, u.employee_code, u.name,
+              u.email,
               u.role_id, COALESCE(r.name, '') AS role,
               u.created_at, u.updated_at
          FROM users u
@@ -112,7 +135,7 @@ router.get('/', authRequired, requireAdmin, async (req, res) => {
 router.get('/roles', authRequired, requireAdmin, async (req, res) => {
   try {
     const db = req.db;
-    const rows = await all(db, `SELECT id, name FROM roles ORDER BY name ASC`);
+    const rows = await all(db, `SELECT id, name FROM roles WHERE name IN (${ALLOWED_ROLES.map(() => '?').join(',')}) ORDER BY name ASC`, ALLOWED_ROLES);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ message: 'DB error', detail: err.message });
@@ -124,10 +147,14 @@ router.get('/roles', authRequired, requireAdmin, async (req, res) => {
 router.post('/', authRequired, requireAdmin, async (req, res) => {
   try {
     const db = req.db;
-    let { employee_code, name, password, role_id, role } = req.body;
+    let { employee_code, name, email, password, role_id, role } = req.body;
 
     if (!employee_code || !name || !password) {
       return res.status(400).json({ message: 'employee_code, name, password are required' });
+    }
+
+    if (role && !ALLOWED_ROLES.includes(role)) {
+      return res.status(400).json({ message: 'Invalid role' });
     }
 
     // สร้าง/ดึง role_id จาก role (string) หากส่งมา
@@ -137,14 +164,14 @@ router.post('/', authRequired, requireAdmin, async (req, res) => {
 
     await run(
       db,
-      `INSERT INTO users (employee_code, name, password_hash, role_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      [employee_code.trim(), name.trim(), hash, rid || null]
+      `INSERT INTO users (employee_code, name, email, password_hash, role_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [employee_code.trim(), name.trim(), (email || '').trim() || null, hash, rid || null]
     );
 
     const row = await get(
       db,
-      `SELECT u.id, u.employee_code, u.name, u.role_id, COALESCE(r.name,'') AS role
+      `SELECT u.id, u.employee_code, u.name, u.email, u.role_id, COALESCE(r.name,'') AS role
          FROM users u LEFT JOIN roles r ON u.role_id=r.id
         WHERE u.employee_code = ?`,
       [employee_code.trim()]
@@ -156,6 +183,109 @@ router.post('/', authRequired, requireAdmin, async (req, res) => {
       return res.status(409).json({ message: 'employee_code already exists' });
     }
     res.status(500).json({ message: 'DB error', detail: err.message });
+  }
+});
+
+// PUT /api/users/:id (ADMIN only)
+// Body: { employee_code, name, email, password?, role_id? or role? }
+router.put('/:id', authRequired, requireAdmin, async (req, res) => {
+  try {
+    const db = req.db;
+    const userId = Number(req.params.id);
+    let { employee_code, name, email, password, role_id, role } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+    if (!employee_code || !name) {
+      return res.status(400).json({ message: 'employee_code and name are required' });
+    }
+    if (role && !ALLOWED_ROLES.includes(role)) {
+      return res.status(400).json({ message: 'Invalid role' });
+    }
+
+    const existing = await get(db, `SELECT id FROM users WHERE id = ?`, [userId]);
+    if (!existing) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const rid = await ensureRoleId(db, { role_id, role });
+
+    if (password && String(password).trim().length > 0) {
+      const hash = await bcrypt.hash(password, 10);
+      await run(
+        db,
+        `UPDATE users
+            SET employee_code = ?,
+                name = ?,
+                email = ?,
+                password_hash = ?,
+                role_id = ?,
+                updated_at = datetime('now')
+          WHERE id = ?`,
+        [employee_code.trim(), name.trim(), (email || '').trim() || null, hash, rid || null, userId]
+      );
+    } else {
+      await run(
+        db,
+        `UPDATE users
+            SET employee_code = ?,
+                name = ?,
+                email = ?,
+                role_id = ?,
+                updated_at = datetime('now')
+          WHERE id = ?`,
+        [employee_code.trim(), name.trim(), (email || '').trim() || null, rid || null, userId]
+      );
+    }
+
+    const row = await get(
+      db,
+      `SELECT u.id, u.employee_code, u.name, u.email, u.role_id, COALESCE(r.name,'') AS role
+         FROM users u LEFT JOIN roles r ON u.role_id=r.id
+        WHERE u.id = ?`,
+      [userId]
+    );
+
+    res.json({ message: 'User updated', user: row });
+  } catch (err) {
+    if (String(err.message).includes('UNIQUE')) {
+      return res.status(409).json({ message: 'employee_code already exists' });
+    }
+    if (String(err.message).includes('Invalid role')) {
+      return res.status(400).json({ message: 'Invalid role' });
+    }
+    res.status(500).json({ message: 'DB error', detail: err.message });
+  }
+});
+
+// DELETE /api/users/:id (ADMIN only)
+router.delete('/:id', authRequired, requireAdmin, async (req, res) => {
+  try {
+    const db = req.db;
+    const userId = Number(req.params.id);
+
+    if (!userId) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    if (req.user?.id && Number(req.user.id) === userId) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    const existing = await get(db, `SELECT id, employee_code, name FROM users WHERE id = ?`, [userId]);
+    if (!existing) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    await run(db, `DELETE FROM users WHERE id = ?`, [userId]);
+
+    return res.json({ message: 'User deleted', user: existing });
+  } catch (err) {
+    if (String(err.message).includes('FOREIGN KEY') || String(err.message).includes('constraint')) {
+      return res.status(409).json({ message: 'Cannot delete user because related records exist' });
+    }
+    return res.status(500).json({ message: 'DB error', detail: err.message });
   }
 });
 
