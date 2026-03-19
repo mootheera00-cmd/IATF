@@ -20,9 +20,10 @@ const loginLimiter = rateLimit({
 // API สำหรับการ Log in
 router.post('/login', loginLimiter, (req: any, res: any) => {
     const { employee_code, password } = req.body;
+    const normalizedEmployeeCode = typeof employee_code === 'string' ? employee_code.trim() : employee_code;
     const db = req.db;
 
-    if (!employee_code || !password) {
+    if (!normalizedEmployeeCode || !password) {
         return res.status(400).json({ message: 'กรุณากรอกรหัสพนักงานและรหัสผ่าน' });
     }
 
@@ -34,7 +35,7 @@ router.post('/login', loginLimiter, (req: any, res: any) => {
         WHERE u.employee_code = ?
     `;
 
-    db.get(sql, [employee_code], async (err: any, user: any) => {
+    db.get(sql, [normalizedEmployeeCode], async (err: any, user: any) => {
         if (err) {
             console.error("❌ DB Error:", err.message);
             return res.status(500).json({ error: err.message });
@@ -51,9 +52,27 @@ router.post('/login', loginLimiter, (req: any, res: any) => {
                 const isBcryptHash = BCRYPT_HASH_PATTERN.test(user.password_hash);
                 if (isBcryptHash) {
                     passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+                    // Support legacy rows where plaintext password is still canonical.
+                    if (!passwordMatch && user.password) {
+                        passwordMatch = (user.password === password);
+                    }
                 } else {
                     // Legacy database may store plaintext in password_hash.
-                    passwordMatch = (user.password_hash === password);
+                    passwordMatch = (user.password_hash === password) || (user.password === password);
+
+                    // Keep password column in sync for legacy rows.
+                    if (passwordMatch && user.password !== password) {
+                        db.run(
+                            `UPDATE users SET password = ? WHERE id = ?`,
+                            [password, user.id],
+                            (updateErr: any) => {
+                                if (updateErr) {
+                                    console.error('⚠️ Legacy password sync failed:', updateErr.message);
+                                }
+                            }
+                        );
+                    }
 
                     // Auto-migrate legacy plaintext password to bcrypt hash.
                     if (passwordMatch) {
@@ -72,6 +91,19 @@ router.post('/login', loginLimiter, (req: any, res: any) => {
             } else if (user.password) {
                 // Fallback for plaintext (legacy)
                 passwordMatch = (user.password === password);
+
+                if (passwordMatch) {
+                    const upgradedHash = await bcrypt.hash(password, 10);
+                    db.run(
+                        `UPDATE users SET password_hash = ? WHERE id = ?`,
+                        [upgradedHash, user.id],
+                        (updateErr: any) => {
+                            if (updateErr) {
+                                console.error('⚠️ Password hash backfill failed:', updateErr.message);
+                            }
+                        }
+                    );
+                }
             }
         } catch (bcryptErr) {
             console.error("❌ Bcrypt Error:", bcryptErr);

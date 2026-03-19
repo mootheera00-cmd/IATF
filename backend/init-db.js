@@ -224,10 +224,11 @@ async function initializeDatabase() {
 
     for (const user of testUsers) {
       const roleId = roleMap[user.role];
+      const passwordHash = await bcryptjs.hash(user.password, 10);
       await run(
         `INSERT OR REPLACE INTO users (employee_code, name, password, password_hash, role_id, department, is_active) 
          VALUES (?, ?, ?, ?, ?, ?, 1)`,
-        [user.code, user.name, user.password, user.password, roleId, user.dept]
+        [user.code, user.name, user.password, passwordHash, roleId, user.dept]
       );
     }
     console.log('✅ Test users seeded');
