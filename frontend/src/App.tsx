@@ -12,7 +12,7 @@ import UploadRevision from './pages/UploadRevision';
 import Admin from './pages/Admin';
 import Migration from './pages/Migration';
 import DocumentView from './pages/DocumentView';
-import Flowchart from './pages/Flowchart';
+// Flowchart hub removed – /flowchart now renders WorkflowFlowchart directly
 import Plan from './pages/Plan';
 import TrainingPlan from './pages/TrainingPlan';
 import CalibrationPlan from './pages/CalibrationPlan';
@@ -153,7 +153,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Flowchart />
+              <WorkflowFlowchart />
             </Layout>
           </ProtectedRoute>
         }

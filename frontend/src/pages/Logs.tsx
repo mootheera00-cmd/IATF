@@ -225,8 +225,8 @@ export default function Logs() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Shield className="h-7 w-7 text-indigo-600" /> Audit Trail
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <Shield size={20} className="text-indigo-500" /> Audit Trail
           </h1>
           <p className="text-slate-600">All system events logged for IATF compliance.</p>
         </div>

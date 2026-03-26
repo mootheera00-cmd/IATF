@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dcrAPI, documentAPI } from '../api';
 import {
-  FileText, Activity, Briefcase, File, Book, Layout, List,
+  FileText, Activity, Briefcase, File, Book, Layout, List, FolderOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MasterListModal from '../components/MasterListModal';
@@ -108,7 +108,7 @@ export default function DocumentRepository() {
       {/* Page title */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Document Repository</h1>
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FolderOpen size={20} className="text-indigo-500" /> Document Repository</h1>
           <p className="text-sm text-slate-500 mt-1">IATF 16949 Standard Documentation Hierarchy — all controlled documents</p>
         </div>
         <button

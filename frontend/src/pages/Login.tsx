@@ -88,9 +88,9 @@ export default function Login() {
                   <input
                     type="text"
                     value={employeeCode}
-                    onChange={(e) => setEmployeeCode(e.target.value)}
+                    onChange={(e) => setEmployeeCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())}
                     placeholder="ADMIN001"
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-600 focus:ring-4 focus:ring-purple-100 transition-all"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-600 focus:ring-4 focus:ring-purple-100 transition-all uppercase"
                     disabled={loading}
                     required
                   />

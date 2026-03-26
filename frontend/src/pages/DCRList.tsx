@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { dcrAPI } from '../api';
-import { Plus, Filter, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Filter, Search, AlertCircle, RefreshCw, ClipboardCheck } from 'lucide-react';
 import NewBadge from '../components/NewBadge';
 import { isNew, markSeen } from '../hooks/useNewBadge';
 import { normalizeCategory, CATEGORY_OPTIONS } from '../utils/category';
@@ -159,7 +159,7 @@ export default function DCRList() {
       {/* Header with Create Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Create/Change Request</h1>
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2"><ClipboardCheck size={20} className="text-indigo-500" /> Create/Change Request</h1>
           <p className="text-gray-600 mt-1">
             All change requests from all users and all IDs are shown collectively. Press Refresh to update history.
           </p>

@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarCheck2, Wrench, Gauge, Building2, Users, ArrowUpRight, ArrowRight } from 'lucide-react';
+import { CalendarCheck2, Wrench, Gauge, Building2, Users, ArrowUpRight, ArrowRight, History as HistoryIcon } from 'lucide-react';
 
 const planButtons = [
   {
     id: 'hub-test-equipment',
-    label: 'Test Equipment Planning of HUB',
+    label: 'HUB Equipment Plan',
     icon: CalendarCheck2,
     imageIcon: '🛞',
     imageAlt: 'Car tire',
@@ -14,7 +14,7 @@ const planButtons = [
   },
   {
     id: 'powertrain-test-equipment',
-    label: 'Test Equipment Planning of Powertrain',
+    label: 'Powertrain Equipment Plan',
     icon: Wrench,
     imageIcon: '⚙️',
     imageAlt: 'Engine',
@@ -29,6 +29,8 @@ const planButtons = [
     imageAlt: 'Weighing scale',
     to: '/plan/calibration',
     badge: 'IATF 7.1.5',
+    historyTo: '/plan/calibration/history',
+    historyLabel: 'Cal. History',
   },
   {
     id: 'inhouse-calibration',
@@ -36,6 +38,8 @@ const planButtons = [
     icon: Building2,
     to: '/plan/inhouse-calibration',
     badge: 'IATF 7.1.5',
+    historyTo: '/plan/inhouse-calibration/history',
+    historyLabel: 'In-House Cal. History',
   },
   {
     id: 'maintenance',
@@ -45,6 +49,8 @@ const planButtons = [
     imageAlt: 'Wrench',
     to: '/plan/maintenance',
     badge: 'IATF 7.1.3',
+    historyTo: '/plan/maintenance/history',
+    historyLabel: 'Maint. History',
   },
   {
     id: 'employee-training',
@@ -59,7 +65,7 @@ export default function Plan() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Plan</h1>
+        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2"><CalendarCheck2 size={20} className="text-indigo-500" /> Plan</h1>
         <p className="text-slate-600 mt-2">Select a planning module.</p>
       </div>
 
@@ -110,17 +116,13 @@ export default function Plan() {
           const baseClass =
             'group relative text-center bg-white border border-slate-200 rounded-2xl p-8 min-h-[190px] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300';
 
-          if (item.to) {
-            return (
-              <Link key={item.id} to={item.to} className={baseClass}>
-                {inner}
-              </Link>
-            );
-          }
-
-          return (
+          const card = item.to ? (
+            <Link key={`${item.id}-card`} to={item.to} className={baseClass}>
+              {inner}
+            </Link>
+          ) : (
             <button
-              key={item.id}
+              key={`${item.id}-card`}
               type="button"
               onClick={() => {
                 if (item.href) {
@@ -132,6 +134,23 @@ export default function Plan() {
               {inner}
             </button>
           );
+
+          if (item.historyTo) {
+            return (
+              <div key={item.id} className="flex flex-col gap-2">
+                {card}
+                <Link
+                  to={item.historyTo}
+                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all duration-200 shadow-sm"
+                >
+                  <HistoryIcon size={13} />
+                  {item.historyLabel || 'History'}
+                </Link>
+              </div>
+            );
+          }
+
+          return <React.Fragment key={item.id}>{card}</React.Fragment>;
         })}
       </div>
     </div>

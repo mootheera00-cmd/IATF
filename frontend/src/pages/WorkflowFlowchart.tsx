@@ -12,6 +12,11 @@ import {
   Star,
   Database,
   Send,
+  X,
+  Users,
+  ListChecks,
+  ShieldCheck,
+  Briefcase,
 } from "lucide-react";
 
 // ─── Shared step definitions ──────────────────────────────────────────────────
@@ -355,22 +360,380 @@ const LIGHT: Record<string, string> = {
   teal: "bg-teal-50 border-teal-200 text-teal-800",
 };
 
+// ─── Role / step info data for popups ─────────────────────────────────────────
+interface RoleInfo {
+  who: string;
+  responsibilities: string[];
+  checklist: string[];
+  security: string[];
+}
+
+const ROLE_INFO: Record<string, RoleInfo> = {
+  Requester: {
+    who: "Any employee who needs a new document created or an existing document changed. Typically a Process Owner, Engineer, or Department Lead.",
+    responsibilities: [
+      "Submit a Document Change Request (DCR) with clear justification",
+      "Prepare and upload the draft document (Word / Excel)",
+      "Upload the corresponding PDF for review",
+      "Respond to rejection feedback and revise as needed",
+    ],
+    checklist: [
+      "Document title and ID confirmed",
+      "Correct document level selected (Level 1–4)",
+      "Draft file in approved format (Word / Excel)",
+      "PDF version generated from the draft",
+      "Change reason / justification clearly described",
+      "Affected departments / processes identified",
+    ],
+    security: [
+      "Only authenticated users with an active account can submit requests",
+      "Requester can only view and edit their own draft tickets",
+      "All uploads are virus-scanned and file-type validated",
+    ],
+  },
+  "DC Review": {
+    who: "Document Controller (DC) — the designated person responsible for managing the document control system under IATF 16949.",
+    responsibilities: [
+      "Verify the request form is complete and justified",
+      "Check for duplicate or conflicting document IDs",
+      "Approve the request to proceed or reject with reason",
+      "Ensure correct document level classification",
+    ],
+    checklist: [
+      "Request form fields fully completed",
+      "Document ID does not conflict with existing records",
+      "Justification is clear and valid",
+      "Correct document level assigned",
+      "Requester has authority for the requested scope",
+    ],
+    security: [
+      "Only users with Document Control role can access this review",
+      "Approval / rejection decision is audit-logged with timestamp",
+      "Rejection reason is mandatory and recorded",
+    ],
+  },
+  Revision: {
+    who: "The original Requester who submitted the DCR. They are responsible for preparing the revised document files.",
+    responsibilities: [
+      "Download the original file (for change requests)",
+      "Make the required changes in Word / Excel",
+      "Generate a matching PDF version",
+      "Upload both files to the system",
+      "Ensure revision marks or change highlights are visible",
+    ],
+    checklist: [
+      "Original file downloaded (change request only)",
+      "All requested changes implemented",
+      "Revision number / date updated in the document",
+      "Change history table updated within the document",
+      "PDF generated from the latest Word / Excel",
+      "Both Word/Excel and PDF uploaded to system",
+    ],
+    security: [
+      "Only the assigned requester can upload revision files",
+      "File uploads are restricted to allowed types and size limits",
+      "Previous versions are preserved — no overwriting",
+    ],
+  },
+  Checker: {
+    who: "A designated reviewer assigned to verify the document content. Typically a Senior Engineer, Supervisor, or Subject-Matter Expert.",
+    responsibilities: [
+      "Review the uploaded document for technical accuracy",
+      "Verify formatting meets the IATF 16949 template standards",
+      "Approve or reject the revision with feedback",
+      "Ensure all required sections are complete",
+    ],
+    checklist: [
+      "Document content is technically correct",
+      "Format follows the controlled document template",
+      "Revision number and date are correct",
+      "Referenced standards / procedures are accurate",
+      "No grammatical or typographical errors",
+    ],
+    security: [
+      "Only users assigned as Checker for this document can review",
+      "Checker cannot be the same person as the Requester",
+      "Decision (approve/reject) is recorded with timestamp and user ID",
+    ],
+  },
+  Approver: {
+    who: "A senior authority such as a Department Manager, QMR (Quality Management Representative), or Plant Manager who gives final content approval.",
+    responsibilities: [
+      "Review the document for management-level correctness",
+      "Confirm alignment with quality objectives and IATF 16949",
+      "Approve or reject with comments",
+      "Authorize the document for release preparation",
+    ],
+    checklist: [
+      "Document aligns with quality policy and objectives",
+      "All checker review feedback has been addressed",
+      "Appropriate scope and applicability confirmed",
+      "Management authorization is justified",
+    ],
+    security: [
+      "Only users assigned as Approver for this document can approve",
+      "Approver cannot be the Requester or Checker for the same request",
+      "Decision is immutable once recorded in the audit trail",
+    ],
+  },
+  "Non-Signed PDF": {
+    who: "The Requester — required to upload a non-signed (clean) PDF version for Form-type documents (Level 4).",
+    responsibilities: [
+      "Generate a clean PDF without signatures for distribution",
+      "Ensure the PDF matches the approved Word / Excel content exactly",
+      "Upload the non-signed PDF to the system",
+    ],
+    checklist: [
+      "PDF generated from the final approved Word / Excel",
+      "No signature fields filled in (clean copy)",
+      "Content matches the approved revision exactly",
+      "File name follows naming convention",
+    ],
+    security: [
+      "Only the assigned requester can upload this file",
+      "File type restricted to PDF only",
+      "This step is required only for Form-type documents",
+    ],
+  },
+  "Final DC Release": {
+    who: "Document Controller (DC) — performs the final release check before the document becomes officially controlled.",
+    responsibilities: [
+      "Verify all approvals are in place",
+      "Confirm the PDF matches the approved content",
+      "Release the document into the controlled system",
+      "Reject back to Revision if discrepancies found",
+    ],
+    checklist: [
+      "All approval steps show approved status",
+      "PDF content matches the latest Word / Excel",
+      "Document metadata (ID, title, level, revision) is correct",
+      "Non-signed PDF uploaded (if Form type)",
+      "No pending issues or open comments",
+    ],
+    security: [
+      "Only Document Control role can perform final release",
+      "Release action triggers notification to all stakeholders",
+      "Released documents are locked from further edits",
+      "Full audit trail recorded for compliance",
+    ],
+  },
+  Released: {
+    who: "System action — the document is now officially released and available in the Document Repository.",
+    responsibilities: [
+      "Document is published and visible to authorized users",
+      "Previous revision is archived automatically",
+      "Notification sent to relevant departments",
+    ],
+    checklist: [
+      "Document appears in the repository under correct category",
+      "Correct revision number displayed",
+      "Previous revision marked as superseded",
+    ],
+    security: [
+      "Released documents are read-only",
+      "Only Document Control can initiate further changes via new DCR",
+      "Access controlled by role-based permissions",
+    ],
+  },
+  "Stored in DB": {
+    who: "System action — the document and its revision data are permanently stored in the database.",
+    responsibilities: [
+      "All document metadata saved (ID, title, level, revision, dates)",
+      "File attachments stored in secure storage",
+      "Audit trail entries preserved",
+    ],
+    checklist: [
+      "Database record created with complete metadata",
+      "Files stored in the secure file system",
+      "Backup included in the regular backup cycle",
+    ],
+    security: [
+      "Database access restricted to system processes only",
+      "All stored files are access-controlled",
+      "Data integrity verified through checksums",
+    ],
+  },
+  "Send Original File": {
+    who: "System action — the system automatically sends the original Word/Excel file to the Requester after DC Review approval.",
+    responsibilities: [
+      "Retrieve the current released version of the document",
+      "Deliver the original editable file to the requester",
+      "Enable the requester to make changes on the correct base version",
+    ],
+    checklist: [
+      "Correct original file version sent",
+      "Requester receives download notification",
+      "File matches the currently released revision",
+    ],
+    security: [
+      "File is sent only to the authorized requester",
+      "Download link is time-limited and single-use",
+      "Action is logged in the audit trail",
+    ],
+  },
+  "DC / Admin": {
+    who: "Document Controller or System Admin — initiates a re-upload request when a document needs correction without a full change request cycle.",
+    responsibilities: [
+      "Identify the document that requires re-upload",
+      "Create a re-upload request ticket",
+      "Assign the requester to prepare the updated files",
+    ],
+    checklist: [
+      "Document ID confirmed for re-upload",
+      "Reason for re-upload documented",
+      "Requester identified and notified",
+    ],
+    security: [
+      "Only DC or Admin roles can initiate re-upload",
+      "Re-upload bypasses DC Review but still requires Checker and Approver",
+      "Action logged in audit trail",
+    ],
+  },
+  Rejected: {
+    who: "System status — the request has been rejected by Document Control and the ticket is closed.",
+    responsibilities: [
+      "Rejection reason is recorded and visible to the Requester",
+      "Requester is notified of the rejection",
+      "Requester may submit a new request if needed",
+    ],
+    checklist: [
+      "Rejection reason clearly stated",
+      "Requester has been notified",
+      "Ticket status is closed — no further action possible",
+    ],
+    security: [
+      "Rejected tickets are read-only and cannot be modified",
+      "Rejection reason is part of the permanent audit trail",
+      "Only a new DCR can restart the process",
+    ],
+  },
+};
+
+// ─── Role Info Popup ──────────────────────────────────────────────────────────
+function RolePopup({
+  step,
+  onClose,
+}: {
+  step: FlowStep;
+  onClose: () => void;
+}) {
+  const info = ROLE_INFO[step.label];
+  if (!info) return null;
+
+  const Icon = step.icon;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 px-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`flex items-center justify-between px-5 py-4 ${BG[step.color]} rounded-t-2xl`}>
+          <div className="flex items-center gap-3 text-white">
+            {Icon && <Icon size={22} />}
+            <div>
+              <h3 className="text-base font-bold">{step.label}</h3>
+              {step.sublabel && <p className="text-xs text-white/70">{step.sublabel}</p>}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* WHO */}
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Users size={15} className="text-indigo-500" />
+              <h4 className="text-sm font-bold text-slate-800">Who holds this role?</h4>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed pl-[23px]">{info.who}</p>
+          </div>
+
+          {/* RESPONSIBILITIES */}
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Briefcase size={15} className="text-amber-500" />
+              <h4 className="text-sm font-bold text-slate-800">Responsibilities</h4>
+            </div>
+            <ul className="space-y-1 pl-[23px]">
+              {info.responsibilities.map((r, i) => (
+                <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* CHECKLIST */}
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <ListChecks size={15} className="text-emerald-500" />
+              <h4 className="text-sm font-bold text-slate-800">Preparation Checklist</h4>
+            </div>
+            <ul className="space-y-1 pl-[23px]">
+              {info.checklist.map((c, i) => (
+                <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                  <CheckCircle size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+                  {c}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* SECURITY */}
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <ShieldCheck size={15} className="text-blue-500" />
+              <h4 className="text-sm font-bold text-slate-800">System Security</h4>
+            </div>
+            <ul className="space-y-1 pl-[23px]">
+              {info.security.map((s, i) => (
+                <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Individual node renderers ────────────────────────────────────────────────
-function NodeBox({ step }: { step: FlowStep }) {
+function NodeBox({ step, onClick }: { step: FlowStep; onClick?: () => void }) {
   const Icon = step.icon;
   const isEnd = step.type === "end";
   const isTerminal = step.type === "terminal-end";
   const isStart = step.type === "start";
   const isDb = step.type === "db";
+  const hasInfo = Boolean(ROLE_INFO[step.label]);
+  const clickable = hasInfo && onClick;
+  const cursor = clickable ? "cursor-pointer hover:scale-105 hover:shadow-lg transition-all duration-150" : "";
 
   // DB storage node — cylinder-style with dashed border
   if (isDb) {
     return (
-      <div className="flex flex-col items-center gap-1">
-        <div className="flex flex-col items-center justify-center w-36 h-[72px] rounded-xl border-2 border-dashed border-teal-400 bg-teal-50 shadow-sm text-center px-2 gap-1">
-          {Icon && <Icon size={16} className="text-teal-600" />}
-          <span className="text-sm font-bold leading-tight text-teal-800">{step.label}</span>
-          <span className="text-xs leading-tight text-teal-600 opacity-80">{step.sublabel}</span>
+      <div className={`flex flex-col items-center gap-1 ${cursor}`} onClick={clickable ? onClick : undefined}>
+        <div className="flex flex-col items-center justify-center w-28 h-[68px] rounded-xl border-2 border-dashed border-teal-400 bg-teal-50 shadow-sm text-center px-2 gap-1">
+          {Icon && <Icon size={14} className="text-teal-600" />}
+          <span className="text-xs font-bold leading-tight text-teal-800">{step.label}</span>
+          <span className="text-[10px] leading-tight text-teal-600 opacity-80">{step.sublabel}</span>
         </div>
       </div>
     );
@@ -378,12 +741,12 @@ function NodeBox({ step }: { step: FlowStep }) {
 
   if (isEnd || isTerminal) {
     return (
-      <div className="flex flex-col items-center gap-1">
+      <div className={`flex flex-col items-center gap-1 ${cursor}`} onClick={clickable ? onClick : undefined}>
         <div
-          className={`flex flex-col items-center justify-center w-36 h-[64px] rounded-full border-2 shadow font-bold text-sm text-white text-center px-2 ${BG[step.color]} ${BORDER[step.color]}`}
+          className={`flex flex-col items-center justify-center w-28 h-[60px] rounded-full border-2 shadow font-bold text-xs text-white text-center px-2 ${BG[step.color]} ${BORDER[step.color]}`}
         >
-          {Icon && <Icon size={16} className="mb-0.5" />}
-          <span className="text-sm leading-tight">{step.label}</span>
+          {Icon && <Icon size={14} className="mb-0.5" />}
+          <span className="text-xs leading-tight">{step.label}</span>
         </div>
       </div>
     );
@@ -391,19 +754,17 @@ function NodeBox({ step }: { step: FlowStep }) {
 
   if (step.type === "decision") {
     return (
-      <div className="flex flex-col items-center h-[230px]">
-        <div className="relative w-[182px] h-[182px] flex items-center justify-center">
+      <div className={`flex flex-col items-center ${cursor}`} style={{ width: 140 }} onClick={clickable ? onClick : undefined}>
+        <div className="relative flex items-center justify-center" style={{ width: 140, height: 140 }}>
           <div
-            className={`absolute w-32 h-32 rounded-lg rotate-45 border-2 shadow-md ${BG[step.color]} ${BORDER[step.color]} opacity-90`}
+            className={`absolute w-24 h-24 rounded-lg rotate-45 border-2 shadow-md ${BG[step.color]} ${BORDER[step.color]} opacity-90`}
           />
           <div className="relative z-10 flex flex-col items-center text-white text-center px-1">
-            {Icon && <Icon size={16} className="mb-0.5" />}
-            <span className="text-sm font-bold leading-tight">
-              {step.label}
-            </span>
+            {Icon && <Icon size={14} className="mb-0.5" />}
+            <span className="text-xs font-bold leading-tight">{step.label}</span>
           </div>
         </div>
-        <span className="text-xs text-slate-500 max-w-[130px] text-center leading-tight mt-1 pb-1">
+        <span className="text-[10px] text-slate-500 max-w-[120px] text-center leading-tight mt-0.5">
           {step.sublabel}
         </span>
       </div>
@@ -412,20 +773,18 @@ function NodeBox({ step }: { step: FlowStep }) {
 
   // action / start
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className={`flex flex-col items-center gap-1 ${cursor}`} onClick={clickable ? onClick : undefined}>
       <div
-        className={`flex flex-col items-center justify-center w-36 h-[80px] rounded-xl border-2 shadow text-center px-2 gap-1 ${isStart ? `${BG[step.color]} text-white ${BORDER[step.color]}` : `${LIGHT[step.color]} border`}`}
+        className={`flex flex-col items-center justify-center w-28 h-[76px] rounded-xl border-2 shadow text-center px-2 gap-1 ${isStart ? `${BG[step.color]} text-white ${BORDER[step.color]}` : `${LIGHT[step.color]} border`}`}
       >
-        {Icon && <Icon size={16} className={isStart ? "text-white/80" : ""} />}
-        <span className="text-sm font-bold leading-tight">{step.label}</span>
-        <span
-          className={`text-xs leading-tight ${isStart ? "text-white/70" : "opacity-70"}`}
-        >
+        {Icon && <Icon size={14} className={isStart ? "text-white/80" : ""} />}
+        <span className="text-xs font-bold leading-tight">{step.label}</span>
+        <span className={`text-[10px] leading-tight ${isStart ? "text-white/70" : "opacity-70"}`}>
           {step.sublabel}
         </span>
       </div>
       {step.note && (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-300 leading-none">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-300 leading-none">
           {step.note}
         </span>
       )}
@@ -433,121 +792,121 @@ function NodeBox({ step }: { step: FlowStep }) {
   );
 }
 
-// ─── Vertical linear flow renderer ───────────────────────────────────────────
-function FlowChart({ steps }: { steps: FlowStep[] }) {
-  // Build a main-path array (excluding terminal-end branch)
+// ─── Horizontal linear flow renderer ─────────────────────────────────────────
+function FlowChart({ steps, onNodeClick }: { steps: FlowStep[]; onNodeClick: (step: FlowStep) => void }) {
   const mainPath = steps.filter((s) => s.type !== "terminal-end");
   const rejected = steps.find((s) => s.type === "terminal-end");
 
-  // Find the DC Review step (has a reject → terminal-end)
   const dcReviewIdx = mainPath.findIndex(
-    (s) =>
-      s.type === "decision" &&
-      steps.find((r) => r.type === "terminal-end") &&
-      s.reject === rejected?.id,
+    (s) => s.type === "decision" && s.reject === rejected?.id,
   );
-
-  // Find the Revision step index to know where to draw the back arrow to
   const revisionIdx = mainPath.findIndex((s) => s.label === "Revision");
 
+  // Width of each node slot
+  const nodeW = (s: FlowStep) => (s.type === "decision" ? 140 : 112);
+  const connW = 52; // connector strip width
+
+  // X center of a given index in the main path
+  const calcX = (index: number) => {
+    let x = 0;
+    for (let i = 0; i < index; i++) {
+      x += nodeW(mainPath[i]) + connW;
+    }
+    return x + nodeW(mainPath[index]) / 2;
+  };
+
+  // All three flows use the same top padding so node Y-positions are identical.
+  // The "Rejected" terminal (where present) is absolutely positioned above DC Review
+  // so it NEVER displaces the flex row, keeping SVG arrow coordinates consistent.
+  const flowPaddingTop = 90;
+  const ROW_TOP = 160;     // SVG Y reference (matches Re-upload which looks correct)
+  const REJECT_BELOW = 140; // px below ROW_TOP for the first reject-back loop line
+
+  // Compute bottom padding to avoid clipping the deepest reject arrow
+  const deepestLoopY = mainPath.reduce((max, step, idx) => {
+    if (step.type !== "decision") return max;
+    const rejectsBack = step.reject && steps.find((s) => s.id === step.reject)?.type !== "terminal-end";
+    if (!rejectsBack || revisionIdx === -1) return max;
+    const loopY = ROW_TOP + REJECT_BELOW + (idx - revisionIdx - 1) * 28;
+    return Math.max(max, loopY + 30);
+  }, ROW_TOP + 70);
+  const containerPaddingBottom = Math.max(60, deepestLoopY - (flowPaddingTop + 140) + 80);
+
+  const REJECTED_W = 112; // w-28 in px
+
   return (
-    <div className="flex gap-6 relative justify-center mx-auto max-w-lg pb-10">
-      {/* ── Left-side branches: Reject back to Revision SVG layer ── */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <svg
-          className="w-full h-full text-rose-400"
-          style={{ overflow: "visible" }}
-        >
-          <defs>
-            <marker
-              id="arrow-rose"
-              viewBox="0 0 10 10"
-              refX="10"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
+    <div className="relative px-6" style={{ minWidth: "max-content", paddingBottom: containerPaddingBottom }}>
+      {/* ── Absolutely positioned "Rejected" terminal above DC Review ── */}
+      {rejected && dcReviewIdx !== -1 && (() => {
+        const dcX = calcX(dcReviewIdx);
+        const leftPx = 24 + dcX - REJECTED_W / 2; // 24 = px-6 padding
+        const Icon = rejected.icon;
+        return (
+          <div
+            className="absolute z-10 flex flex-col items-center cursor-pointer hover:scale-105 transition-all duration-150"
+            style={{ left: leftPx, top: 0, width: REJECTED_W }}
+            onClick={() => onNodeClick(rejected)}
+          >
+            <div
+              className={`flex flex-col items-center justify-center w-28 h-[60px] rounded-full border-2 shadow font-bold text-xs text-white text-center px-2 ${BG[rejected.color]} ${BORDER[rejected.color]}`}
             >
-              <polygon points="0,0 10,5 0,10" fill="currentColor" />
-            </marker>
-          </defs>
-          {mainPath.map((step, idx) => {
-            if (step.type !== "decision") return null;
-            const rejectsBack =
-              step.reject &&
-              steps.find((s) => s.id === step.reject)?.type !== "terminal-end";
-            if (!rejectsBack || revisionIdx === -1) return null;
+              {Icon && <Icon size={14} className="mb-0.5" />}
+              <span className="text-xs leading-tight">{rejected.label}</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="h-3 w-0.5 bg-rose-400" />
+              <svg width="10" height="7" viewBox="0 0 10 7" className="text-rose-400">
+                <polygon points="5,7 0,0 10,0" fill="currentColor" />
+              </svg>
+              <span className="text-[9px] font-bold text-rose-500 leading-none mt-0.5">✗ Reject</span>
+            </div>
+          </div>
+        );
+      })()}
 
-            // Approximate Y positions mapping based on the fixed heights in the DOM loops below
-            const nodeH = (s: FlowStep) =>
-              s.type === "decision"
-                ? 230
-                : s.type === "end" || s.type === "terminal-end"
-                  ? 64
-                  : s.type === "db"
-                    ? 72
-                    : 80 + (s.note ? 20 : 0); // action nodes with note pill are taller
-
-            const calcY = (index: number, isDecision: boolean) => {
-              let y = 0;
-              for (let i = 0; i < index; i++) {
-                y += nodeH(mainPath[i]);
-                if (i < mainPath.length - 1) {
-                  y += 32; // Connector height
-                }
-              }
-              return (
-                y +
-                (isDecision
-                  ? 182 / 2
-                  : mainPath[index].type === "end" ||
-                      mainPath[index].type === "terminal-end"
-                    ? 32
-                    : 40)
-              );
-            };
-            const startY = calcY(idx, true);
-            const baseTargetY = calcY(revisionIdx, false);
-
-            const indexDiff = idx - revisionIdx;
-            // Cascade lines leftwards so they don't overlap vertically
-            const leftEdge = -25 - indexDiff * 14;
-
-            // Stagger target Y so arrows plug neatly into the side of the Revision box
-            const adjustedTargetY = baseTargetY + (indexDiff - 2) * 12;
-
-            return (
-              <g key={`arrow-${step.id}`}>
-                {/* Path line drawing left, up, then right to revision node */}
-                <path
-                  d={`M 8 ${startY} L ${leftEdge} ${startY} L ${leftEdge} ${adjustedTargetY} L -5 ${adjustedTargetY}`}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  markerEnd="url(#arrow-rose)"
-                  strokeDasharray="4 2"
-                />
-                <foreignObject
-                  x={leftEdge + 5}
-                  y={startY - 22}
-                  width="40"
-                  height="20"
-                  style={{ overflow: "visible" }}
-                >
-                  <div className="bg-white border border-rose-200 text-rose-600 text-[10px] font-bold px-1 py-0.5 rounded shadow-sm text-center w-[40px] block">
-                    Reject
-                  </div>
-                </foreignObject>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-      {/* ── Main vertical flow ── */}
-      <div
-        className="flex flex-col items-center relative z-10"
-        style={{ paddingTop: "0px", paddingBottom: "0px", gap: "0" }}
+      {/* ── SVG overlay: reject-back arrows below ── */}
+      <svg
+        className="absolute inset-0 pointer-events-none"
+        style={{ width: "100%", height: "100%", overflow: "visible" }}
       >
+        <defs>
+          <marker id="arr-rose" viewBox="0 0 10 10" refX="10" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto">
+            <polygon points="0,0 10,5 0,10" fill="#f87171" />
+          </marker>
+        </defs>
+        {mainPath.map((step, idx) => {
+          if (step.type !== "decision") return null;
+          const rejectsBack =
+            step.reject &&
+            steps.find((s) => s.id === step.reject)?.type !== "terminal-end";
+          if (!rejectsBack || revisionIdx === -1) return null;
+
+          // Add px-6 (24px) padding offset so SVG coords align with the flex row
+          const fromX = calcX(idx) + 24;
+          const toX = calcX(revisionIdx) + 24;
+          const indexDiff = idx - revisionIdx;
+          const loopY = ROW_TOP + REJECT_BELOW + (indexDiff - 1) * 28;
+
+          return (
+            <g key={`rej-${step.id}`}>
+              <path
+                d={`M ${fromX} ${ROW_TOP + 100} L ${fromX} ${loopY} L ${toX} ${loopY} L ${toX} ${ROW_TOP + 55}`}
+                fill="none"
+                stroke="#f87171"
+                strokeWidth="1.5"
+                strokeDasharray="4 2"
+                markerEnd="url(#arr-rose)"
+              />
+              <rect x={fromX - 20} y={loopY - 9} width="40" height="14" rx="3" fill="white" stroke="#fca5a5" strokeWidth="0.8" />
+              <text x={fromX} y={loopY + 1} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#e11d48">Reject</text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* ── Main horizontal flow ── */}
+      <div className="flex flex-row items-center relative z-10" style={{ paddingTop: flowPaddingTop, gap: 0 }}>
         {mainPath.map((step, idx) => {
           const hasDecision = step.type === "decision";
           const isLast = idx === mainPath.length - 1;
@@ -555,107 +914,41 @@ function FlowChart({ steps }: { steps: FlowStep[] }) {
           return (
             <React.Fragment key={step.id}>
               {/* Node */}
-              <div className="relative flex justify-center w-full z-10">
-                <NodeBox step={step} />
+              <div className="relative flex flex-col items-center">
+                <NodeBox step={step} onClick={() => onNodeClick(step)} />
               </div>
 
-              {/* Connector below */}
+              {/* Horizontal connector to next node */}
               {!isLast && (
-                <div className="flex flex-col items-center h-[32px] justify-start overflow-visible">
+                <div className="flex flex-col items-center justify-center" style={{ width: connW }}>
                   {hasDecision ? (
-                    <div className="flex flex-col items-center flex-1 h-full">
-                      <div className="flex items-center gap-1 text-emerald-600 text-[10px] font-bold leading-none mt-0.5">
-                        <span>✓ Approve</span>
+                    <>
+                      <span className="text-[9px] font-bold text-emerald-600 whitespace-nowrap mb-0.5">✓ Ok</span>
+                      <div className="flex flex-row items-center w-full">
+                        <div className="flex-1 h-0.5 bg-emerald-400" />
+                        <svg width="7" height="10" viewBox="0 0 7 10" className="text-emerald-400">
+                          <polygon points="7,5 0,0 0,10" fill="currentColor" />
+                        </svg>
                       </div>
-                      <div className="w-0.5 flex-1 bg-emerald-400 mt-0.5" />
-                    </div>
+                    </>
                   ) : step.type === "end" ? (
-                    <div className="w-0.5 flex-1 bg-teal-400" />
+                    <div className="flex flex-row items-center w-full">
+                      <div className="flex-1 h-0.5 bg-teal-400" />
+                      <svg width="7" height="10" viewBox="0 0 7 10" className="text-teal-400">
+                        <polygon points="7,5 0,0 0,10" fill="currentColor" />
+                      </svg>
+                    </div>
                   ) : (
-                    <div className="w-0.5 flex-1 bg-slate-300" />
+                    <div className="flex flex-row items-center w-full">
+                      <div className="flex-1 h-0.5 bg-slate-300" />
+                      <svg width="7" height="10" viewBox="0 0 7 10" className="text-slate-400">
+                        <polygon points="7,5 0,0 0,10" fill="currentColor" />
+                      </svg>
+                    </div>
                   )}
-                  {/* Arrow tip */}
-                  <svg
-                    width="10"
-                    height="7"
-                    viewBox="0 0 10 7"
-                    className={`block ${hasDecision ? "text-emerald-400" : step.type === "end" ? "text-teal-400" : "text-slate-400"}`}
-                  >
-                    <polygon points="5,7 0,0 10,0" fill="currentColor" />
-                  </svg>
                 </div>
               )}
             </React.Fragment>
-          );
-        })}
-      </div>{" "}
-      {/* ── Right-side branches: Terminal Reject ── */}
-      <div className="flex flex-col relative z-10 w-32">
-        {mainPath.map((step, idx) => {
-          const nodeHeight =
-            step.type === "decision"
-              ? 230
-              : step.type === "end" || step.type === "terminal-end"
-                ? 64
-                : step.type === "db"
-                  ? 72
-                  : 80 + (step.note ? 20 : 0);
-          const connectorHeight = 32;
-          const marginTop = 0;
-
-          if (step.type !== "decision") {
-            return (
-              <div
-                key={step.id}
-                style={{
-                  height:
-                    nodeHeight +
-                    marginTop +
-                    (idx < mainPath.length - 1 ? connectorHeight : 0),
-                }}
-              />
-            );
-          }
-
-          const isDcReview = idx === dcReviewIdx;
-
-          return (
-            <div
-              key={step.id}
-              style={{
-                height:
-                  nodeHeight +
-                  marginTop +
-                  (idx < mainPath.length - 1 ? connectorHeight : 0),
-              }}
-              className="relative"
-            >
-              {isDcReview && rejected ? (
-                // Reject -> END
-                <div
-                  className="absolute flex items-center w-[120px]"
-                  style={{ top: "91px", marginTop: "-32px" }}
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-1 text-rose-500 text-[10px] font-bold mb-1 ml-4">
-                      <span>✗ Reject</span>
-                    </div>
-                    <div className="flex items-center gap-0">
-                      <div className="h-0.5 w-8 bg-rose-400" />
-                      <svg
-                        width="7"
-                        height="10"
-                        viewBox="0 0 7 10"
-                        className="text-rose-400"
-                      >
-                        <polygon points="7,5 0,0 0,10" fill="currentColor" />
-                      </svg>
-                      <NodeBox step={rejected} />
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
           );
         })}
       </div>
@@ -693,40 +986,39 @@ const statusFlow = [
 
 export default function WorkflowFlowchart() {
   const [activeTab, setActiveTab] = useState<"new" | "change" | "reup">("new");
+  const [popupStep, setPopupStep] = useState<FlowStep | null>(null);
   const current = TABS.find((t) => t.key === activeTab)!;
 
   return (
     <div className="space-y-4">
+      {/* Role info popup */}
+      {popupStep && ROLE_INFO[popupStep.label] && (
+        <RolePopup step={popupStep} onClose={() => setPopupStep(null)} />
+      )}
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Workflow Flowchart
+        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <GitPullRequest size={20} className="text-indigo-500" /> Workflow for Document Control
         </h1>
-        <p className="text-slate-500 text-sm mt-0.5">
+        <p className="text-slate-400 text-[11px] mt-0">
           Visual representation of the document control workflows.
         </p>
       </div>
 
-      {/* Status Flow Strip */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+      {/* Status Flow Strip — muted reference legend */}
+      <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5">
+        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide mb-2">
           Status Flow
         </p>
         <div className="flex flex-wrap items-center gap-1">
           {statusFlow.map((s, i) => (
             <React.Fragment key={s.label}>
-              <span
-                className={`text-white text-xs font-semibold px-2.5 py-1 rounded-full ${s.color}`}
-              >
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-white border border-slate-200">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.color}`} />
                 {s.label}
               </span>
               {i < statusFlow.length - 1 && (
-                <svg
-                  width="14"
-                  height="10"
-                  viewBox="0 0 14 10"
-                  className="text-slate-400 flex-shrink-0"
-                >
+                <svg width="10" height="8" viewBox="0 0 14 10" className="text-slate-300 flex-shrink-0">
                   <polygon points="14,5 0,0 0,10" fill="currentColor" />
                 </svg>
               )}
@@ -735,138 +1027,101 @@ export default function WorkflowFlowchart() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* ── Left: Flowchart panel ─────────────────────────────────────────── */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-slate-200 text-sm font-semibold">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 py-3 transition-colors ${activeTab === tab.key ? "text-indigo-700 border-b-2 border-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+      {/* ── Flowchart panel (full width) — primary focus ─────────────── */}
+      <div className="bg-white border-2 border-indigo-200 rounded-xl shadow-lg overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 text-sm font-semibold">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 py-3 transition-colors ${activeTab === tab.key ? "text-indigo-700 border-b-2 border-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Flow diagram */}
-          <div className="p-6 overflow-x-auto">
-            <FlowChart steps={current.steps} />
+        {/* Flow diagram — zoom-to-fit, centered */}
+        <div className="p-4 overflow-x-auto">
+          <p className="text-[10px] text-slate-400 text-center mb-2 italic">Click any step to see role details, responsibilities, checklist & security info</p>
+          <div style={{ zoom: 0.85, display: "table", margin: "0 auto" }}>
+            <FlowChart steps={current.steps} onNodeClick={setPopupStep} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bottom row: Legend + Levels + Notes ──────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {/* Shape Legend */}
+        <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Shape Legend</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded bg-indigo-600 border border-indigo-400 flex-shrink-0" />
+              <span className="text-[10px] text-slate-700">Start</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded bg-amber-100 border border-amber-300 flex-shrink-0" />
+              <span className="text-[10px] text-slate-700">Process</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rotate-45 rounded-sm bg-violet-600 border border-violet-400 flex-shrink-0" />
+              <span className="text-[10px] text-slate-700">Decision</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-emerald-600 border border-emerald-400 flex-shrink-0" />
+              <span className="text-[10px] text-slate-700">Released</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-rose-600 border border-rose-400 flex-shrink-0" />
+              <span className="text-[10px] text-slate-700">Rejected</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border border-dashed border-teal-400 bg-teal-50 flex-shrink-0" />
+              <span className="text-[10px] text-slate-700">Stored in DB</span>
+            </div>
+          </div>
+          <div className="mt-2 flex gap-3">
+            <div className="flex items-center gap-1">
+              <div className="h-0.5 w-5 bg-emerald-400" />
+              <svg width="5" height="7" viewBox="0 0 7 10" className="text-emerald-400"><polygon points="7,5 0,0 0,10" fill="currentColor" /></svg>
+              <span className="text-[9px] text-slate-600">Approve</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-0.5 w-5 bg-rose-400" style={{ borderTop: "1.5px dashed #f87171", background: "none" }} />
+              <svg width="5" height="7" viewBox="0 0 7 10" className="text-rose-400"><polygon points="7,5 0,0 0,10" fill="currentColor" /></svg>
+              <span className="text-[9px] text-slate-600">Reject</span>
+            </div>
           </div>
         </div>
 
-        {/* ── Right: Legend + Level Rules ───────────────────────────────────── */}
-        <div className="flex flex-col gap-4">
-          {/* Node legend */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">
-              Shape Legend
-            </p>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 border-2 border-indigo-400 flex-shrink-0" />
-                <span className="text-slate-700">Start / Requester action</span>
+        {/* Document Levels */}
+        <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Document Levels</p>
+          <div className="space-y-1">
+            {levelRules.map((r) => (
+              <div key={r.level} className="flex gap-1.5">
+                <span className="font-bold text-indigo-700 w-12 flex-shrink-0 text-[10px]">{r.level}</span>
+                <span className="text-slate-600 text-[10px] leading-relaxed">{r.desc}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-amber-100 border-2 border-amber-300 flex-shrink-0" />
-                <span className="text-slate-700">Process / Upload step</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rotate-45 rounded-md bg-violet-600 border-2 border-violet-400 flex-shrink-0" />
-                <span className="text-slate-700">
-                  Decision (Approve / Reject)
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 border-2 border-emerald-400 flex-shrink-0" />
-                <span className="text-slate-700">End / Released</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-rose-600 border-2 border-rose-400 flex-shrink-0" />
-                <span className="text-slate-700">Terminal End / Rejected</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl border-2 border-dashed border-teal-400 bg-teal-50 flex-shrink-0" />
-                <span className="text-slate-700">Stored in DB</span>
-              </div>
-            </div>
-            <div className="mt-4 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="h-0.5 w-8 bg-emerald-400" />
-                <svg
-                  width="8"
-                  height="6"
-                  viewBox="0 0 8 6"
-                  className="text-emerald-400"
-                >
-                  <polygon points="8,3 0,0 0,6" fill="currentColor" />
-                </svg>
-                <span className="text-xs text-slate-600">Approve path</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-0.5 w-8 bg-rose-400" />
-                <svg
-                  width="8"
-                  height="6"
-                  viewBox="0 0 8 6"
-                  className="text-rose-400"
-                >
-                  <polygon points="8,3 0,0 0,6" fill="currentColor" />
-                </svg>
-                <span className="text-xs text-slate-600">Reject path</span>
-              </div>
-            </div>
+            ))}
           </div>
+        </div>
 
-          {/* Level rules */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">
-              Document Levels
-            </p>
-            <div className="space-y-2">
-              {levelRules.map((r) => (
-                <div key={r.level} className="flex gap-2 text-sm">
-                  <span className="font-bold text-indigo-700 w-14 flex-shrink-0">
-                    {r.level}
-                  </span>
-                  <span className="text-slate-600 text-xs leading-relaxed">
-                    {r.desc}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Key notes */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <Star size={12} /> Key Notes
-            </p>
-            <ul className="space-y-1.5 text-xs text-amber-900 list-disc list-inside">
-              <li>
-                All rejections from Checker/Approver/DC return to{" "}
-                <strong>Revision</strong> step.
-              </li>
-              <li>DC Review rejection closes the ticket permanently.</li>
-              <li>
-                After DC Review <strong>approves</strong>, the{" "}
-                <strong>system automatically sends</strong> the original
-                Word/Excel file to the requester for revision.
-              </li>
-              <li>
-                <strong>Non-Signed PDF is required for Form documents only.</strong>
-              </li>
-              <li>
-                Re-upload requests skip DC Review — go directly to Revision.
-              </li>
-              <li>
-                After release, the document & revision are{" "}
-                <strong>stored in the database</strong>.
-              </li>
-            </ul>
-          </div>
+        {/* Key Notes */}
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+            <Star size={10} /> Key Notes
+          </p>
+          <ul className="space-y-0.5 text-[10px] text-slate-600 list-disc list-inside">
+            <li>All rejections from Checker/Approver/DC return to <strong>Revision</strong>.</li>
+            <li>DC Review rejection closes the ticket permanently.</li>
+            <li>After DC Review approves, the <strong>system automatically sends</strong> the original file to requester.</li>
+            <li><strong>Non-Signed PDF is required for Form documents only.</strong></li>
+            <li>Re-upload skips DC Review — goes directly to Revision.</li>
+            <li>After release, document &amp; revision are <strong>stored in DB</strong>.</li>
+          </ul>
         </div>
       </div>
     </div>

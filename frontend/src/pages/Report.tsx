@@ -23,7 +23,7 @@ export default function Report() {
     <div className="space-y-8">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Report</h1>
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FileText size={20} className="text-indigo-500" /> Report</h1>
           <p className="text-slate-600 mt-2">IATF 16949 quality system overview and reports.</p>
         </div>
       </div>

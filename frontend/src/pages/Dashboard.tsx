@@ -163,7 +163,8 @@ export default function Dashboard() {
       {/* Greeting */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <LayoutGrid size={20} className="text-indigo-500" />
             {greeting()}, {(user as any)?.full_name || (user as any)?.username || 'User'} 
           </h1>
           <p className="text-slate-500 text-sm mt-1">Here is your personal activity summary and system overview.</p>
@@ -473,11 +474,11 @@ export default function Dashboard() {
               <div className="p-2.5 bg-rose-50 rounded-lg group-hover:bg-rose-100 transition-colors">
                 <ShieldAlert size={20} className="text-rose-600" />
               </div>
-              <h3 className="font-semibold text-slate-800">Safety</h3>
+              <h3 className="font-semibold text-slate-800">Risk Assessment</h3>
             </div>
             <p className="text-xs text-slate-500 mb-3">Risk assessment, hazard identification, safety controls  ISO 45001</p>
             <div className="flex items-center gap-1 text-rose-600 text-xs font-semibold group-hover:gap-2 transition-all">
-              View safety <ArrowRight size={12} />
+              View Risk Assessment <ArrowRight size={12} />
             </div>
           </Link>
 

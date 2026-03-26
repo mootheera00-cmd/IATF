@@ -19,7 +19,7 @@ export default function Quality() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Quality</h1>
+        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FlaskConical size={20} className="text-indigo-500" /> Quality</h1>
         <p className="text-slate-600 mt-2">Select a quality module.</p>
       </div>
 
