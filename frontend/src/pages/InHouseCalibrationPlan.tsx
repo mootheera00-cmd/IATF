@@ -106,7 +106,7 @@ export default function InHouseCalibrationPlan() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // ── view mode ──────────────────────────────────────────────────────────────
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
   const [calYear, setCalYear]   = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null); // 0-11
 
@@ -465,6 +465,13 @@ export default function InHouseCalibrationPlan() {
               {pagePic?.pic_name ? pagePic.pic_name : 'Person In Charge'}
             </button>
           )}
+          <button
+            onClick={() => navigate('/plan/inhouse-calibration/history')}
+            className="flex items-center gap-2 border border-teal-300 text-teal-700 bg-teal-50 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-100 transition-colors"
+          >
+            <History size={16} />
+            History
+          </button>
           <button
             onClick={() => { setForm({ ...emptyForm }); setEditId(null); setError(''); setShowForm(true); }}
             className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors shadow"

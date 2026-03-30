@@ -34,11 +34,12 @@ export default function ReportSearch() {
   const [menuLoading, setMenuLoading] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (standardUrl) URL.revokeObjectURL(standardUrl);
-      if (zeroUrl) URL.revokeObjectURL(zeroUrl);
-    };
-  }, [standardUrl, zeroUrl]);
+    return () => { if (standardUrl) URL.revokeObjectURL(standardUrl); };
+  }, [standardUrl]);
+
+  useEffect(() => {
+    return () => { if (zeroUrl) URL.revokeObjectURL(zeroUrl); };
+  }, [zeroUrl]);
 
   const canSearch = useMemo(() => keyword.trim().length >= 6, [keyword]);
 
@@ -123,42 +124,52 @@ export default function ReportSearch() {
     }
   };
 
-  const openInNewTab = (url: string) => {
-    if (!url) return;
-    // Blob URLs require same-origin access; noopener breaks them in some browsers
-    window.open(url, '_blank');
+  const openInNewTab = async (filePath: string) => {
+    if (!filePath) return;
+    try {
+      const response = await reportAPI.file(filePath, 'inline');
+      const url = URL.createObjectURL(response.data);
+      window.open(url, '_blank');
+      // Revoke after a short delay to let the new tab load
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      setStatusMessage('Failed to open file.');
+    }
   };
 
-  const downloadPdf = (url: string, filename: string) => {
-    if (!url) return;
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename || 'report.pdf';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  const downloadPdf = async (filePath: string, filename: string) => {
+    if (!filePath) return;
+    try {
+      const response = await reportAPI.file(filePath, 'attachment');
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'report.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setStatusMessage('Failed to download file.');
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50" onClick={() => setContextMenu(null)}>
-      <div className="w-full px-6 py-6 space-y-6">
-        <header className="space-y-3">
-          <Link to="/report" className="inline-flex items-center gap-2 text-sm text-indigo-600 font-semibold">
-            <ArrowLeft className="h-4 w-4" /> Back to Report
+      <div className="w-full px-4 py-3 space-y-2">
+        <header className="flex items-center gap-4">
+          <Link to="/report" className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Report Search (APTX)</h1>
-            <p className="text-slate-600">Search APTX reports and preview PDFs.</p>
-          </div>
+          <h1 className="text-lg font-bold text-slate-900">Report Search (APTX)</h1>
         </header>
 
         {/* Search bar */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <label className="block text-sm font-semibold text-slate-700 mb-1">APTX Number</label>
-          <p className="text-xs text-slate-400 mb-3">Enter the full APTX report number (e.g. APTX26001) to search and preview the PDF.</p>
-          <div className="flex items-center gap-3">
+        <section className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-slate-700 whitespace-nowrap">APTX No.</label>
             <input
-              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200"
               placeholder="APTX26001"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value.toUpperCase())}
@@ -172,22 +183,22 @@ export default function ReportSearch() {
               type="button"
               disabled={loading || !canSearch}
               onClick={handleSearch}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-white font-semibold shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-sm text-white font-semibold shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSearch className="h-3.5 w-3.5" />}
               Search
             </button>
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">{statusMessage}</span>
           </div>
-          <span className="mt-2 block text-xs font-semibold text-slate-500">{statusMessage}</span>
         </section>
 
         {/* PDF panels */}
-        <section className={`grid gap-6 ${showZero ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+        <section className={`grid gap-3 ${showZero ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
           {/* ── APTX (Standard) panel ── */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                <FileText className="h-4 w-4 text-indigo-500" />
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold">
+                <FileText className="h-3.5 w-3.5 text-indigo-500" />
                 APTX Report
                 {standardInfo && (
                   <span className="text-xs text-slate-400 font-normal ml-1">({standardInfo.fileName})</span>
@@ -206,14 +217,14 @@ export default function ReportSearch() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => openInNewTab(standardUrl)}
+                    onClick={() => openInNewTab(standardInfo.path)}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline"
                   >
                     <ExternalLink className="h-3 w-3" /> Open
                   </button>
                   <button
                     type="button"
-                    onClick={() => downloadPdf(standardUrl, standardInfo.fileName)}
+                    onClick={() => downloadPdf(standardInfo.path, standardInfo.fileName)}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:underline"
                   >
                     <Download className="h-3 w-3" /> Download
@@ -222,7 +233,7 @@ export default function ReportSearch() {
               )}
             </div>
             <div
-              className="h-[72vh] bg-slate-100"
+              className="h-[82vh] bg-slate-100"
               onContextMenu={(event) => {
                 if (!standardInfo?.path) return;
                 event.preventDefault();
@@ -232,7 +243,7 @@ export default function ReportSearch() {
               {standardUrl ? (
                 <iframe title="Standard PDF" src={standardUrl} className="h-full w-full" />
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
                   {standardInfo ? 'Loading preview...' : 'No file loaded'}
                 </div>
               )}
@@ -241,10 +252,10 @@ export default function ReportSearch() {
 
           {/* ── Zero-Prefix panel (only when revealed) ── */}
           {showZero && (
-            <div className="bg-white border border-amber-200 rounded-2xl shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-amber-200 bg-amber-50">
-                <div className="flex items-center gap-2 text-amber-700 font-semibold">
-                  <FileText className="h-4 w-4" />
+            <div className="bg-white border border-amber-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-amber-200 bg-amber-50">
+                <div className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold">
+                  <FileText className="h-3.5 w-3.5" />
                   Zero-Prefix PDF
                   {zeroInfo && (
                     <span className="text-xs text-amber-500 font-normal ml-1">({zeroInfo.fileName})</span>
@@ -264,14 +275,14 @@ export default function ReportSearch() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => openInNewTab(zeroUrl)}
+                        onClick={() => openInNewTab(zeroInfo.path)}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" /> Open
                       </button>
                       <button
                         type="button"
-                        onClick={() => downloadPdf(zeroUrl, zeroInfo.fileName)}
+                        onClick={() => downloadPdf(zeroInfo.path, zeroInfo.fileName)}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:underline"
                       >
                         <Download className="h-3 w-3" /> Download
@@ -289,7 +300,7 @@ export default function ReportSearch() {
                 </div>
               </div>
               <div
-                className="h-[72vh] bg-amber-50/30"
+                className="h-[82vh] bg-amber-50/30"
                 onContextMenu={(event) => {
                   if (!zeroInfo?.path) return;
                   event.preventDefault();
