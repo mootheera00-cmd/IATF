@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const router = express.Router();
 const { authRequired } = require('../middleware/auth');
 const { reportBasePath } = require('../config/config');
@@ -46,9 +46,10 @@ const getBasePath = () => {
 };
 
 const ensureWithinBase = (base: string, target: string) => {
-  const resolved = path.resolve(base, target);
-  const normalizedBase = base.endsWith(path.sep) ? base : `${base}${path.sep}`;
-  if (!resolved.startsWith(normalizedBase)) {
+  const normalizedTarget = target.replace(/\//g, path.sep).replace(/\\/g, path.sep);
+  const resolved = path.resolve(base, normalizedTarget);
+  const normalizedBase = path.resolve(base) + path.sep;
+  if (!resolved.startsWith(normalizedBase) && resolved !== path.resolve(base)) {
     throw new Error('Invalid path');
   }
   return resolved;
@@ -124,7 +125,7 @@ router.get('/search', authRequired, (req: any, res: any) => {
 
     const toResponse = (filePath: string) => {
       if (!filePath) return null;
-      const relativePath = path.relative(basePath, filePath);
+      const relativePath = path.relative(basePath, filePath).replace(/\\/g, '/');
       return {
         fileName: path.basename(filePath),
         path: relativePath
@@ -162,7 +163,12 @@ router.get('/file', authRequired, (req: any, res: any) => {
     const disposition = req.query.disposition === 'attachment' ? 'attachment' : 'inline';
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `${disposition}; filename="${path.basename(filePath)}"`);
-    return res.sendFile(filePath);
+    return res.sendFile(filePath, (err: any) => {
+      if (err && !res.headersSent) {
+        console.error('sendFile error:', err);
+        res.status(500).json({ message: 'Unable to send file.' });
+      }
+    });
   } catch (error: any) {
     console.error('Report file error:', error);
     return res.status(500).json({ message: 'Unable to load report file.' });
@@ -171,14 +177,16 @@ router.get('/file', authRequired, (req: any, res: any) => {
 
 const openFolder = (folderPath: string) => {
   if (process.platform === 'win32') {
-    exec(`explorer "${folderPath}"`);
+    // explorer.exe needs spawn + detached; execFile often silently fails
+    const child = spawn('explorer.exe', [folderPath], { detached: true, stdio: 'ignore' });
+    child.unref();
     return;
   }
   if (process.platform === 'darwin') {
-    exec(`open "${folderPath}"`);
+    execFile('open', [folderPath]);
     return;
   }
-  exec(`xdg-open "${folderPath}"`);
+  execFile('xdg-open', [folderPath]);
 };
 
 router.post('/open-folder', authRequired, (req: any, res: any) => {

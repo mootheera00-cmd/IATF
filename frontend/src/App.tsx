@@ -270,7 +270,7 @@ function AppRoutes() {
       />
 
       <Route
-        path="/report/apxt"
+        path="/report/aptx"
         element={
           <ProtectedRoute>
             <ReportSearch />

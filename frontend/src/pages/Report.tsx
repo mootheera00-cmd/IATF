@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Briefcase, FileText } from 'lucide-react';
 
 const reportButtons = [
@@ -14,11 +15,13 @@ const reportButtons = [
     label: 'Report',
     description: 'Open Report program',
     icon: FileText,
-    href: '/report/apxt'
+    href: '/report/aptx'
   }
 ];
 
 export default function Report() {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-8">
       <div className="flex items-start justify-between">
@@ -39,7 +42,13 @@ export default function Report() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => window.open(item.href, '_blank', 'noopener,noreferrer')}
+                onClick={() => {
+                  if (item.href.startsWith('http')) {
+                    window.open(item.href, '_blank', 'noopener,noreferrer');
+                  } else {
+                    navigate(item.href);
+                  }
+                }}
                 className="group relative text-center bg-white border border-slate-200 rounded-2xl p-8 min-h-[190px] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
               >
                 <span className="absolute top-4 right-4 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md">

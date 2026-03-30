@@ -125,7 +125,8 @@ export default function ReportSearch() {
 
   const openInNewTab = (url: string) => {
     if (!url) return;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    // Blob URLs require same-origin access; noopener breaks them in some browsers
+    window.open(url, '_blank');
   };
 
   const downloadPdf = (url: string, filename: string) => {
@@ -153,34 +154,31 @@ export default function ReportSearch() {
 
         {/* Search bar */}
         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-semibold text-slate-700">APTX Number</label>
-              <input
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                placeholder="APTX26001"
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value.toUpperCase())}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && canSearch) {
-                    handleSearch();
-                  }
-                }}
-              />
-            </div>
-            <div className="flex flex-col items-start gap-2">
-              <button
-                type="button"
-                disabled={loading || !canSearch}
-                onClick={handleSearch}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-white font-semibold shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
-                Search
-              </button>
-              <span className="text-xs font-semibold text-slate-500">{statusMessage}</span>
-            </div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">APTX Number</label>
+          <p className="text-xs text-slate-400 mb-3">Enter the full APTX report number (e.g. APTX26001) to search and preview the PDF.</p>
+          <div className="flex items-center gap-3">
+            <input
+              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              placeholder="APTX26001"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value.toUpperCase())}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && canSearch) {
+                  handleSearch();
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={loading || !canSearch}
+              onClick={handleSearch}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-white font-semibold shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
+              Search
+            </button>
           </div>
+          <span className="mt-2 block text-xs font-semibold text-slate-500">{statusMessage}</span>
         </section>
 
         {/* PDF panels */}
