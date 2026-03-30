@@ -4,7 +4,7 @@ import { CalendarCheck2, Wrench, Gauge, Building2, Users, ArrowUpRight } from 'l
 const planButtons = [
   {
     id: 'hub-test-equipment',
-    label: 'Test Equipment Planning of HUB',
+    label: 'HUB Equipment Plan',
     icon: CalendarCheck2,
     imageIcon: '🛞',
     imageAlt: 'Car tire',
@@ -12,7 +12,7 @@ const planButtons = [
   },
   {
     id: 'powertrain-test-equipment',
-    label: 'Test Equipment Planning of Powertrain',
+    label: 'Powertrain Equipment Plan',
     icon: Wrench,
     imageIcon: '⚙️',
     imageAlt: 'Engine'

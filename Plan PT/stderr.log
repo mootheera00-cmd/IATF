@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "D:\Moo-2026\14 IATF\V4\NSK-IATF-DocControl c\Plan PT\app.py", line 12, in <module>
+    from flask import Flask, send_from_directory, jsonify, request
+ModuleNotFoundError: No module named 'flask'

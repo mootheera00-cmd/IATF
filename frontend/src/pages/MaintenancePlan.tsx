@@ -80,7 +80,7 @@ export default function MaintenancePlan() {
   const [search, setSearch]             = useState('');
 
   // ── Tab state ─────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'records' | 'floormap'>('floormap');
+  const [activeTab, setActiveTab] = useState<'overview' | 'records' | 'floormap'>('overview');
 
   // ── Plan Records tab state ────────────────────────────────────────────────
   const [recSearch,      setRecSearch]      = useState('');

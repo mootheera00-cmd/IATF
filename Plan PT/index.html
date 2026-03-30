@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Machine Scheduling + Downtime</title>
+  <style>
+    /* ------------------ Theme & base layout ------------------ */
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg: #0f172a;
+      --panel: #0b1220;
+      --muted: #9ca3af;
+      --text: #e5e7eb;
+      --accent: #06b6d4;
+      --grid: #374151;
+      --grid-soft: #1f2937;
+      --labelw: 280px;
+      --row-h: 72px;
+      --header-h: 40px;
+      --unit: 64px;
+      --timeline-width: 1200px;
+      --bar-border: #0f172a;
+      --holiday-bg: rgba(239, 68, 68, 0.12);
+      --weekend-bg: rgba(99, 102, 241, 0.10);
+      --planned-opacity: 0.45;
+      --footer-h: 56px;
+      /* New vars for inputs to support theming */
+      --input-bg: #ffffff;
+      --input-text: #111827;
+      --btn-bg: #111827;
+    }
+    /* --- Insert this into your <style> block --- */
+.now-line {
+  position: absolute;
+  top: 42px; /* Adjust to align with header */
+  bottom: 0;
+  width: 2px;
+  background: #ef4444; /* Red color */
+  z-index: 50;
+  pointer-events: none; /* Allow clicks to pass through */
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.6);
+}
+
+.now-line::after {
+  content: "NOW";
+  position: absolute;
+  top: 0; /* Position it just below the header */
+  left: 4px;
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+    /* ------------------ Context Menu ------------------ */
+    .context-menu {
+      position: fixed; z-index: 10000; background: var(--panel);
+      border: 1px solid var(--grid); box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      border-radius: 6px; padding: 6px 0; min-width: 160px;
+      display: none; animation: fadeIn 0.1s ease-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    .context-menu-item {
+      padding: 8px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text); transition: background 0.1s;
+    }
+    .context-menu-item:hover { background: var(--grid-soft); }
+    .context-menu-item.danger:hover { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .context-divider { height: 1px; background: var(--grid); margin: 4px 0; }
+
+    .context-colors { padding: 6px 12px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+    .context-swatch { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--grid); cursor: pointer; }
+    .context-swatch:hover { transform: scale(1.2); border-color: #fff; }
+    
+    .creation-ghost {
+      position: absolute; height: 28px; top: 4px;
+      background: rgba(6, 182, 212, 0.3); border: 1px dashed var(--accent);
+      border-radius: 4px; pointer-events: none; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: bold; color: #fff;
+      white-space: nowrap; overflow: hidden;
+    }
+
+    /* --- Light Mode --- */
+    body.theme-light {
+      --bg: #f8fafc; --panel: #ffffff; --muted: #64748b; --text: #0f172a;
+      --accent: #0ea5e9; --grid: #cbd5e1; --grid-soft: #e2e8f0; --bar-border: #94a3b8;
+      --holiday-bg: rgba(239, 68, 68, 0.08); --weekend-bg: rgba(99, 102, 241, 0.05);
+      --input-bg: #f1f5f9; --input-text: #0f172a; --btn-bg: #e2e8f0;
+    }
+    /* --- Dark Mode (OLED) --- */
+    body.theme-dark {
+      --bg: #000000; --panel: #121212; --muted: #a3a3a3; --text: #e5e5e5;
+      --accent: #0891b2; --grid: #404040; --grid-soft: #262626; --bar-border: #000000;
+      --holiday-bg: rgba(220, 38, 38, 0.15); --weekend-bg: rgba(79, 70, 229, 0.12);
+      --input-bg: #262626; --input-text: #e5e5e5; --btn-bg: #262626;
+    }
+
+    html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
+    .app { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
+    
+    /* Laptop / Page Scroll Mode */
+    body.mode-page-scroll { overflow: auto; }
+    body.mode-page-scroll .app { height: auto; }
+
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--grid); background: var(--panel); position: sticky; top: 0; z-index: 20; }
+    .tabs button { margin-right: 8px; }
+    button { background: var(--btn-bg); color: var(--text); border: 1px solid var(--grid); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #042a2b; }
+    body.theme-light button.primary { color: #ffffff; }
+
+    select, input, textarea { background: var(--input-bg); color: var(--input-text); border: 1px solid var(--grid); border-radius: 6px; padding: 8px; width: 100%; }
+    input[type="color"]{ padding:0; width:36px; height:36px; border-radius:6px; border:1px solid var(--grid); }
+    label.switch { display:flex; align-items:center; gap:6px; font-size:12px; color: var(--muted); }
+    input[type="checkbox"]{ accent-color:#06b6d4; }
+    .pill { font-size: 12px; color: var(--muted); }
+
+    /* ------------------ Status bar ------------------ */
+    .statusbar { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--grid); background: var(--panel); position: sticky; top: calc(var(--header-h) + 28px); z-index: 15; }
+    .statuscard { background: var(--bg); padding: 8px 12px; border: 1px solid var(--grid); border-radius: 8px; min-height: 54px; cursor:pointer; }
+    .statuscard h4 { margin: 0 0 4px 0; font-size: 14px; display:flex; align-items:center; gap:6px; }
+    .status-light { display:inline-block; width:10px; height:10px; border-radius:50%; background:#064e3b; }
+    .status-light.on { background:#22c55e; box-shadow:0 0 6px #22c55e; }
+    .legend .dot { width:10px; height:10px; border-radius:50%; display:inline-block; border:1px solid #0b0f18; }
+    .statuscard .muted { color: var(--muted); font-size: 12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* ------------------ Main area ------------------ */
+    .main { display: grid; grid-template-columns: 1fr 500px; gap: 12px; padding: 12px 16px; overflow: hidden; padding-bottom: calc(var(--footer-h) + 8px); }
+    body.mode-page-scroll .main { overflow: visible; }
+
+    .gantt { background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; display: grid; grid-template-rows: auto 1fr; }
+    .gantt-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--grid); background: var(--bg); flex-wrap: wrap; }
+
+    .chart { height: 70vh; overflow: auto; }
+    body.mode-page-scroll .chart { height: auto; min-height: 360px; overflow: auto; }
+    .chart.slide-enabled { cursor: grab; }
+    .chart.slide-enabled:active { cursor: grabbing; }
+    .chart.slide-enabled .task { cursor: default; }
+    .chart.is-panning .labels-header, .chart.is-panning .row-label { opacity: 0.8; }
+    .time-header, .row-timeline { transition: transform 0.0s ease-out; }
+
+   .scrollgrid { position: relative; overflow: auto; height: calc(100vh - 350px); display: grid; grid-template-columns: var(--labelw) var(--timeline-width); }
+
+    .labels-header { position: sticky; top: 0; height: var(--header-h); display: flex; align-items: center; padding: 6px 8px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); background: var(--bg); z-index: 3; }
+    .time-header { grid-column: 2; position: sticky; top: 0; height: var(--header-h); display: flex; background: var(--bg); border-bottom: 1px solid var(--grid); z-index: 3; }
+    .time-cell { flex: 0 0 auto; width: var(--unit); border-right: 1px solid var(--grid-soft); padding: 6px 0; font-size: 12px; color: var(--muted); text-align: center; }
+    .time-cell.weekend { background: var(--weekend-bg); color: #93c5fd; }
+    .time-cell.holiday { background: var(--holiday-bg); color: #fca5a5; }
+
+    /* ------------------ Rows ------------------ */
+    .row-label { height: var(--row-h); display:flex; align-items:center; gap:8px; padding: 0 10px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); position: sticky; left: 0; top: var(--header-h); z-index: 2; background: linear-gradient(to bottom, var(--machine-row-color, transparent), var(--machine-row-color, transparent)), var(--bg); }
+    .row-label .mname { font-weight: 600; }
+    .row-label .sname { color: var(--muted); opacity: 0.8; }
+
+    .row-timeline { grid-column: 2; position: relative; height: var(--row-h); border-bottom: 1px solid var(--grid); background: linear-gradient(to bottom, var(--machine-row-color, transparent), var(--machine-row-color, transparent)), repeating-linear-gradient(to right, var(--grid-soft), var(--grid-soft) 1px, var(--bg) 1px, var(--bg) var(--unit)); }
+    .weekend-band, .holiday-band { position:absolute; top:0; height:100%; border-left:1px solid var(--grid-soft); border-right:1px solid var(--grid-soft); }
+    .weekend-band { background: var(--weekend-bg); }
+    .holiday-band { background: var(--holiday-bg); }
+
+    /* ------------------ Tasks ------------------ */
+    .task { position: absolute; height: 36px; top: calc((var(--row-h) - 36px)/2); border-radius: 8px; border: 1px solid var(--bar-border); background: #1d3e45; color: #e6fffb; display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; cursor: grab; user-select: none; max-width: 100%; box-shadow: 0 2px 6px rgba(0,0,0,0.25); z-index: 1;}
+    .task .swatch { width:10px; height:10px; border-radius:50%; border:1px solid #0b0f18; }
+    .task .name  { font-weight: 600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 50%; }
+    .task .meta  { font-size: 12px; color: #d1fae5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 32%; }
+    .task .eta   { font-size: 12px; color: #93c5fd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 28%; }
+    .task.unscheduled { position: relative; height: auto; top: 0; }
+    .task:active { cursor: grabbing; }
+    .task .arrow { color:#f59e0b; font-size:14px; }
+    .task.conflict { outline: 2px solid #ef4444; }
+    .task.planned { opacity: var(--planned-opacity); border-style: dashed;z-index: 0; }
+    .task.locked { cursor: default; }
+    .task.editing { border: 2px solid #ffffff; box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent); z-index: 50; transform: scale(1.02); transition: all 0.1s ease-in-out; }
+    .task.editing .name { font-weight: 800; text-decoration: underline; }
+
+    .drag-tooltip { position: absolute; bottom: 100%; left: 0; transform: translateY(-4px); background: var(--text); color: var(--bg); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10000; }
+    .resize-handle { position:absolute; top: 50%; transform: translateY(-50%); width: 10px; height: 24px; background: rgba(0,0,0,0.25); border: 1px solid var(--grid); border-radius: 4px; cursor: ew-resize; }
+    .resize-handle.left  { left: -6px; }
+    .resize-handle.right { right: -6px; }
+
+    /* ------------------ Sidebar ------------------ */
+    .sidebar { background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 12px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 12px; max-height: calc(100vh - var(--footer-h) - 160px); overflow: auto; }
+    body.mode-page-scroll .sidebar { max-height: none; }
+    .sidebar.disabled-mode input:not(#edit-mode-toggle), .sidebar.disabled-mode select, .sidebar.disabled-mode textarea, .sidebar.disabled-mode button { opacity: 0.5; pointer-events: none; }
+    .sidebar.disabled-mode .edit-mode-wrapper input { opacity: 1; pointer-events: auto; }
+    .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .form-group { display: grid; gap: 6px; margin-bottom: 10px; }
+    @media (max-width: 1200px) { .main { grid-template-columns: 1fr 420px; } }
+    @media (max-width: 992px) { .main { grid-template-columns: 1fr; } .sidebar { order: 2; } .form-grid { grid-template-columns: 1fr; } }
+    .unscheduled { display: grid; gap: 8px; max-height: 24vh; overflow: auto; }
+    .all-tests { background: var(--bg); border: 1px solid var(--grid); border-radius: 8px; padding: 8px; max-height: 28vh; overflow:auto; }
+    .test-item { padding:6px 8px; border-bottom:1px solid var(--grid-soft); display:grid; grid-template-columns: auto 1fr auto auto auto; align-items:center; gap:8px; }
+    .test-item:last-child { border-bottom:none; }
+    .test-item .title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+
+    /* ------------------ Footer ------------------ */
+    .app-footer { position: fixed; left: 0; bottom: 0; width: 100%; z-index: 25; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; border-top: 1px solid var(--grid); background: var(--panel); backdrop-filter: saturate(140%) blur(2px); }
+    .app-footer .footer-left  { display:flex; align-items:center; gap:8px; }
+    .app-footer .footer-right { display:flex; align-items:center; gap:8px; }
+
+    /* ------------------ Modal ------------------ */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index: 50; }
+    .modal .panel { background:var(--panel); border:1px solid var(--grid); border-radius:10px; padding:16px; width: 520px; max-width: 92vw; color:var(--text); }
+    .modal .panel h3 { margin: 0 0 8px 0; }
+    .modal .panel .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="tabs">
+        <button id="tab-planning" class="primary">PT</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+        <span class="pill">Zoom:</span>
+        <button data-zoom="day">Day</button>
+        <button data-zoom="week">Week</button>
+        <button data-zoom="month">Month</button>
+        <button data-zoom="year">Year</button>
+        <button data-zoom="2year">2 Years</button>
+
+        <span class="pill">Navigate:</span>
+        <button id="nav-prev">◀ Prev</button>
+        <button id="nav-today" class="primary">Today</button>
+        <button id="nav-next">Next ▶</button>
+
+        <span class="pill">Go to:</span>
+        <input id="jump-date" type="date" style="width:150px"/>
+        <input id="jump-month" type="month" style="width:150px"/>
+        <input id="jump-year" type="number" min="2000" max="2100" placeholder="YYYY" style="width:90px" />
+        <button id="jump-go">Go</button>
+
+        <label class="switch"><input type="checkbox" id="fit-width" checked style="width: auto;"> Fit</label>
+        <label class="switch"><input type="checkbox" id="work-hours" checked style="width: auto;"> 08:00–17:30</label>
+        <label class="switch"><input type="checkbox" id="holiday-layer" checked style="width: auto;"> Holidays</label>
+        
+        <div id="switches" style="display:contents;">
+            <span class="pill">View:</span>
+            <label class="switch"><input type="radio" name="view-mode" value="all" checked style="width: auto;"> All</label>
+            <label class="switch"><input type="radio" name="view-mode" value="actual" style="width: auto;"> Actual</label>
+            <label class="switch"><input type="radio" name="view-mode" value="planned" style="width: auto;"> Planned</label>
+            <label class="switch" style="border-left:1px solid var(--grid); padding-left:8px; margin-left:8px;">
+                <input type="checkbox" id="slide-nav-toggle" style="width: auto;"> ✋ Slide
+            </label>
+        </div>
+
+        <div id="granularity-section" style="margin-left:12px;">
+            <select id="granularity" style="width:90px">
+                <option value="10">10 min</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60" selected>60 min</option>
+            </select>
+        </div>
+
+        <select id="focus-machine" style="width: auto;"></select>
+        <button id="clear-focus">All</button>
+        <button id="export" title="Export CSV">⬇ CSV</button>
+        <span id="save-status" class="pill"></span>
+        <span id="sync-status" class="pill"></span>
+      </div>
+    </header>
+
+    <div class="statusbar" id="statusbar"></div>
+    
+    <div class="main">
+      <div id="page-planning" class="gantt">
+        <div class="gantt-toolbar" style="justify-content:space-between;">
+          <div>
+            <strong>Booking Area</strong>
+            <span id="range-label" class="pill" style="margin-left:8px"></span>
+          </div>
+          <div class="legend" id="machine-legend"></div>
+        </div>
+        <div class="chart">
+          <div class="scrollgrid" id="scrollgrid"></div>
+        </div>
+      </div>
+
+      <div class="sidebar" id="sidebar-container">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>Create / Edit Test</h3>
+            <label class="switch edit-mode-wrapper" style="font-weight:600; color:var(--accent);">
+                <input type="checkbox" id="edit-mode-toggle" style="width: auto;"> Enable Edit
+            </label>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Bearing no.</label>
+            <input id="input-bearing" placeholder="e.g., 65BWKH19" style="width: 235px;" />
+          </div>
+          <div class="form-group">
+            <label>Test name</label>
+            <input id="input-name" placeholder="e.g., Pattern" style="width: 235px;" />
+          </div>
+          <div class="form-group">
+            <label>Test time (hours)</label>
+            <input id="input-hours" type="number" min="1" value="8" />
+          </div>
+          <div class="form-group">
+            <label>Start date</label>
+            <input id="input-date" type="date" style="width: 235px;" />
+          </div>
+          <div class="form-group">
+            <label>Start time</label>
+            <input id="input-time" type="time" step="600" style="width: 235px;" />
+          </div>
+          <div class="form-group">
+            <label>Machine</label>
+            <select id="input-machine" style="width: 235px;"></select>
+          </div>
+          <div class="form-group">
+            <label>Slot</label>
+            <select id="input-slot" style="width: 235px;"></select>
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="input-color" type="color" value="#1d3e45" />
+              <div id="palette" style="display:flex; gap:6px; flex-wrap: wrap;"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Estimated finish</label>
+            <div id="estimate" class="pill">—</div>
+          </div>
+          
+          <div style="border-top:1px solid var(--grid); margin-top:8px; padding-top:12px; grid-column: span 2;">
+            <h4 style="margin:0 0 8px 0; font-size:13px; color:var(--accent);">⚠ Downtime Logs</h4>
+            <div id="downtime-list" style="margin-bottom:8px; display:flex; flex-direction:column; gap:4px;"></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px;">
+              <input id="dt-start-date" type="datetime-local" style="font-size:11px;" placeholder="Start">
+              <input id="dt-end-date" type="datetime-local" style="font-size:11px;" placeholder="End (Restart)">
+            </div>
+            <div style="display:flex; gap:4px; margin-top:4px;">
+              <input id="dt-reason" placeholder="Reason (e.g. Broken Tool)" style="flex:1; font-size:11px;">
+              <button id="add-downtime" style="padding:4px 8px; font-size:11px; background:var(--grid-soft);">+ Add</button>
+            </div>
+          </div>
+          <label><input type="checkbox" id="input-plan" style="width: auto; margin: auto;"  /> Plan mode</label>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <button id="create" class="primary">＋ Create</button>
+          <button id="update">✎ Save changes</button>
+          <button id="duplicate">⧉ Copy</button>
+          <button id="remove" style="background:#7f1d1d; border-color:#7f1d1d; color:#fff;">🗑 Delete</button>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label>Holidays (YYYY-MM-DD)</label>
+          <textarea id="holiday-input" placeholder="2025-01-01..." rows="3"></textarea>
+          <button id="apply-holidays" style="margin-top:4px;">Apply</button>
+        </div>
+
+        <div>
+          <h3 style="margin-top:8px;">Unscheduled</h3>
+          <div id="unscheduled" class="unscheduled"></div>
+        </div>
+
+        <div>
+          <h3 style="margin-top:8px;">All tests</h3>
+          <div style="margin-top:10px; display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+              <input id="test-search" placeholder="🔍 search..." style="flex:1;">
+              <select id="test-sort" style="width:140px;">
+                  <option value="date">Start Date</option>
+                  <option value="name">Test Name</option>
+                  <option value="bearing">Bearing No.</option>
+                  <option value="duration">Duration</option>
+              </select>
+              <select id="test-filter" style="width:140px;">
+                  <option value="all">All</option>
+                  <option value="actual">Actual only</option>
+                  <option value="planned">Planned only</option>
+                  <option value="unscheduled">Unscheduled</option>
+              </select>
+          </div>
+          <div id="all-tests" class="all-tests"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-footer">
+      <div class="footer-left">
+        <button id="save-footer" class="primary">💾 Save</button>
+        <span id="save-status-footer" class="pill"></span>
+      </div>
+      <div class="footer-right">
+        <span class="pill">Theme:</span>
+        <select id="theme-selector" style="width: auto; padding: 4px;">
+            <option value="default">Default</option>
+            <option value="light">Light Mode</option>
+            <option value="dark">Dark Mode</option>
+        </select>
+        <span id="sync-status-footer" class="pill"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="status-modal" class="modal">
+    <div class="panel">
+      <h3>Slot status details</h3>
+      <div id="status-details"></div>
+      <button id="status-close">Close</button>
+    </div>
+  </div>
+
+  <script>
+    /* ------------------ Utilities ------------------ */
+    const fmtDate = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+    /* --- Insert this into your <script> block --- */
+function renderNowLine() {
+  const grid = document.getElementById('scrollgrid');
+  if (!grid || !state || !state.timelineStart) return;
+
+  // 1. Find or create the line element
+  let line = document.getElementById('now-line');
+  if (!line) {
+    line = document.createElement('div');
+    line.id = 'now-line';
+    line.className = 'now-line';
+    grid.appendChild(line);
+  }
+
+  // 2. Calculate time difference
+  const now = new Date();
+  const start = new Date(state.timelineStart);
+  const diffMs = now - start;
+
+  // Hide if the time is before the start of the chart
+  if (diffMs < 0) {
+    line.style.display = 'none';
+    return;
+  }
+
+  // 3. Calculate pixel position based on Zoom level
+  // We use the existing 'unitWidth()' helper if available, or default to 64
+  const unit = typeof unitWidth === 'function' ? unitWidth() : 64;
+  let px = 0;
+
+  if (state.zoom === 'day') {
+    // In Day view: 1 unit = 1 hour
+    px = (diffMs / 3600000) * unit;
+  } else if (state.zoom === 'week' || state.zoom === 'month') {
+    // In Week/Month view: 1 unit = 1 day
+    px = (diffMs / 86400000) * unit;
+  } else {
+    // In Year view: 1 unit = ~1 month (30.44 days)
+    const days = diffMs / 86400000;
+    px = (days / 30.44) * unit;
+  }
+
+  // 4. Apply position (Offset by the sidebar width)
+  line.style.display = 'block';
+  line.style.left = `calc(var(--labelw) + ${px}px)`;
+}
+    
+    const fmtTime = (d)=>d.toTimeString().slice(0,8);
+    const clamp   = (v,min,max)=>Math.max(min, Math.min(max,v));
+    function addHours(d,h){ return new Date(d.getTime()+h*3600*1000); }
+    function addMinutes(d,m){ return new Date(d.getTime()+m*60*1000); }
+    function addDays(d,days){ return new Date(d.getTime()+days*24*3600*1000); }
+    function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+    function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
+    function startOfWeek(d){ const x=startOfDay(d); const day=x.getDay(); const diff=(day===0? -6:1)-day; return startOfDay(addDays(x,diff)); }
+    function endOfWeek(d){ return addDays(startOfWeek(d), 6); }
+    function startOfMonth(d){ const x=startOfDay(d); x.setDate(1); return x; }
+    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999); }
+    function startOfYear(d){ const x=startOfDay(d); x.setMonth(0,1); return x; }
+    function endOfYear(d){ return new Date(d.getFullYear(), 11, 31, 23,59,59,999); }
+    function hoursBetween(a,b){ return (b.getTime()-a.getTime())/3600000; }
+    function minutesBetween(a,b){ return (b.getTime()-a.getTime())/60000; }
+    function fromISO(s){ return s? new Date(s): null; }
+    function iso(d){ return d? d.toISOString(): null; }
+    function hexToRGBA(hex, alpha = 0.18) {
+      const h = hex.replace('#', '');
+      const r = parseInt(h.length === 3 ? h[0]+h[0] : h.slice(0,2), 16);
+      const g = parseInt(h.length === 3 ? h[1]+h[1] : h.slice(2,4), 16);
+      const b = parseInt(h.length === 3 ? h[2]+h[2] : h.slice(4,6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+// Add this helper to convert decimal hours (81.15) -> "81 h 09 m"
+function fmtDuration(decimalHours) {
+  const h = Math.floor(decimalHours);
+  const m = Math.round((decimalHours - h) * 60);
+  const mStr = String(m).padStart(2, '0'); // Ensures "09" instead of "9"
+  return `${h} h ${mStr} m`;
+}
+    /* ------------------ Downtime Helpers ------------------ */
+    let tempDowntimeLog = []; 
+
+    function getDowntimeHours(task) {
+      // Use temp log if task is the one currently being edited (or passed explicitly)
+      // Otherwise use saved log
+      const logs = task.downtime_logs || (task === state.tempTask ? tempDowntimeLog : []); 
+      if (!Array.isArray(logs) || logs.length === 0) return 0;
+      return logs.reduce((total, log) => {
+        const s = new Date(log.start);
+        const e = log.end ? new Date(log.end) : new Date(); 
+        return total + ((e - s) / 3600000);
+      }, 0);
+    }
+
+    function getAdjustedEndTime(task) {
+    if (!task.start) return null;
+    const start = new Date(task.start);
+    
+    // Calculate downtime in hours
+    const downtimeHours = (task.downtime_logs || []).reduce((acc, log) => {
+        const s = new Date(log.start);
+        const e = new Date(log.end);
+        return acc + (e - s) / (1000 * 60 * 60);
+    }, 0);
+
+    // End = Start + Work Hours + Downtime Hours
+    return new Date(start.getTime() + (task.duration_hours + downtimeHours) * 60 * 60 * 1000);
+}
+
+    /* ------------------ Context Menu & Laptop Detection ------------------ */
+    // (Included Context Menu Logic)
+    (function setupContextMenu() {
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.innerHTML = `<div class="context-menu-item" id="ctx-edit">✏️ Edit</div><div class="context-menu-item" id="ctx-copy">⧉ Duplicate</div><div class="context-divider"></div><div class="context-colors" id="ctx-colors"></div><div class="context-divider"></div><div class="context-menu-item danger" id="ctx-delete">🗑 Delete</div>`;
+        document.body.appendChild(menu);
+        const colors = ['#1d3e45','#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6'];
+        const colorRow = menu.querySelector('#ctx-colors');
+        colors.forEach(c => {
+            const d = document.createElement('div'); d.className = 'context-swatch'; d.style.background = c;
+            d.onclick = (e) => { e.stopPropagation(); updateTaskColor(state.contextMenuId, c); menu.style.display = 'none'; };
+            colorRow.appendChild(d);
+        });
+        let activeTaskId = null;
+        document.addEventListener('contextmenu', (e) => {
+            const taskEl = e.target.closest('.task'); if (!taskEl) { menu.style.display = 'none'; return; }
+            e.preventDefault(); activeTaskId = taskEl.dataset.id; state.contextMenuId = activeTaskId;
+            menu.style.display = 'block';
+            const rect = menu.getBoundingClientRect();
+            let x = e.clientX, y = e.clientY;
+            if (x + rect.width > window.innerWidth) x -= rect.width;
+            if (y + rect.height > window.innerHeight) y -= rect.height;
+            menu.style.left = x + 'px'; menu.style.top = y + 'px';
+        });
+        document.addEventListener('click', (e) => { if (!e.target.closest('.context-menu')) menu.style.display = 'none'; });
+        document.addEventListener('scroll', () => menu.style.display = 'none', true);
+        document.getElementById('ctx-edit').onclick = () => { loadIntoEditor(activeTaskId); menu.style.display = 'none'; };
+        document.getElementById('ctx-copy').onclick = () => { duplicateTask(activeTaskId); menu.style.display = 'none'; };
+        document.getElementById('ctx-delete').onclick = () => { if (confirm('Delete?')) deleteTest(activeTaskId); menu.style.display = 'none'; };
+        function updateTaskColor(id, color) { const t = state.tasks.find(x => String(x.id) === String(id)); if (t) { t.color = color; saveSchedule(); renderAll(); } }
+    })();
+
+    function detectLaptopMode(){
+      const ua = navigator.userAgent || '';
+      const isDesktopPlatform = /Windows|Macintosh|Linux/i.test(ua) && !/Mobile|Android|iPhone|iPad/i.test(ua);
+      const w = Math.min(window.screen.width, window.innerWidth);
+      const h = Math.min(window.screen.height, window.innerHeight);
+      const approxLaptop = isDesktopPlatform && w >= 1024 && w <= 1920 && h >= 600 && h <= 1440;
+      const mediaFine = window.matchMedia('(pointer: fine)').matches;
+      return approxLaptop || (isDesktopPlatform && mediaFine && w <= 1920);
+    }
+    function applyScrollMode(){
+      if(detectLaptopMode()){ document.body.classList.add('mode-page-scroll'); } else { document.body.classList.remove('mode-page-scroll'); }
+    }
+    applyScrollMode(); window.addEventListener('resize', applyScrollMode);
+
+    /* ------------------ State ------------------ */
+    const state = {
+      machines: [], tasks: [], zoom: 'month', timelineStart: startOfMonth(new Date()),
+      updated_at: null, dragging: false, selectedUnscheduledId: null, minuteStep: 60,
+      focusMachineId: '', fitWidth: true, workHours: true, workStart: {h:8,m:0}, workEnd: {h:17,m:30},
+      editingId: null, holidays: new Set(), showHolidays: true, viewMode: 'all', editMode: false
+    };
+
+    const machineColors = { 'wp_v': '#06b6d4', 'wp_iv_1': '#3b82f6', 'wp_iv_2': '#2563eb', 'wp_iv_6': '#1d4ed8', 'wp_iv_7': '#1e40af', 'hs_mb': '#8b5cf6', 'mb_new': '#f59e0b', 'mb_old': '#d97706', 'mcb': '#16a34a', 'tp': '#ef4444' };
+    function barColor(t){ return t.color || (machineColors[t.machine_id] || '#1d3e45'); }
+
+    /* ------------------ Network / Storage (Updated for LocalStorage) ------------------ */
+    async function loadSchedule(){
+      try {
+          // Try fetching from API first (if hosted)
+          const r=await fetch('/plan-pt-api/schedule', {cache:'no-store'});
+          if(r.ok) {
+              const d=await r.json();
+              state.machines=d.machines||[];
+              state.tasks=d.tasks||[];
+              state.updated_at=d.updated_at||null;
+          } else { throw new Error('API not found'); }
+      } catch(e) {
+          // Fallback: LocalStorage
+          console.log('Loading from LocalStorage...');
+          const localData = localStorage.getItem('gantt_data');
+          if(localData) {
+              const parsed = JSON.parse(localData);
+              state.machines = parsed.machines || [];
+              state.tasks = parsed.tasks || [];
+          } else {
+              // Default machines
+              state.machines = [ {id:'semi_floating', name:'Semi Floating'}, {id:'dual_long', name:'Dual Long'}, {id:'four_five_ton', name:'4.5 Ton'}, {id:'mud_slurry', name:'Mud Slurry'}, {id:'wp_v',name:'Water Pump V'}, {id:'mcb',name:'MCB'} ];
+          }
+      }
+      fillMachineSelects();
+      renderAll();
+      syncTick();
+      toggleEditModeUI(); 
+    }
+
+    async function saveSchedule(){
+      // 1. LocalStorage
+      const payload={machines:state.machines,tasks:state.tasks};
+      localStorage.setItem('gantt_data', JSON.stringify(payload));
+      
+      const footerStatus = document.getElementById('save-status-footer');
+      footerStatus.textContent='Saved (Local) ✓';
+      setTimeout(()=> footerStatus.textContent='', 1500);
+
+      // 2. API attempt
+      try {
+          const r=await fetch('/plan-pt-api/schedule',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+          const d=await r.json();
+          if(d&&d.ok){ state.updated_at=d.updated_at; footerStatus.textContent='Saved (Server) ✓'; }
+      } catch(e){}
+    }
+    
+    let syncTimer=null;
+    function startSync(){ if(syncTimer) clearInterval(syncTimer); syncTimer=setInterval(checkRemote,5000); }
+    async function checkRemote(){
+      if(state.dragging) return;
+      try{
+        const r=await fetch('/plan-pt-api/schedule',{cache:'no-store'});
+        const d=await r.json();
+        if(d.updated_at && d.updated_at!==state.updated_at){
+          state.machines=d.machines||[]; state.tasks=d.tasks||[]; state.updated_at=d.updated_at; renderAll();
+        }
+        syncTick();
+      }catch(e){}
+    }
+    function syncTick(){ const txt = state.updated_at? `Updated: ${state.updated_at.replace('T',' ').slice(0,19)} UTC` : ''; document.getElementById('sync-status').textContent = txt; document.getElementById('sync-status-footer').textContent = txt; }
+
+    /* ------------------ Navigation ------------------ */
+    function setZoom(z){
+      state.zoom=z; document.querySelectorAll('button[data-zoom]').forEach(b=>b.classList.toggle('primary', b.dataset.zoom===z));
+      if(z==='day')   state.timelineStart=startOfDay(new Date(state.timelineStart));
+      if(z==='week')  state.timelineStart=startOfWeek(new Date(state.timelineStart));
+      if(z==='month') state.timelineStart=startOfMonth(new Date(state.timelineStart));
+      if(z==='year' || z==='2year') state.timelineStart=startOfYear(new Date(state.timelineStart));
+      renderAll();
+    }
+    function navigate(delta){
+      const s=state.timelineStart;
+      if(state.zoom==='day')      state.timelineStart=addDays(s,delta);
+      else if(state.zoom==='week')state.timelineStart=addDays(s,delta*7);
+      else if(state.zoom==='month'){ const x=new Date(s); x.setMonth(x.getMonth()+delta); state.timelineStart=startOfMonth(x); }
+      else if(state.zoom==='year'){ const x=new Date(s); x.setFullYear(x.getFullYear()+delta); state.timelineStart=startOfYear(x); }
+      else if(state.zoom==='2year'){ const x=new Date(s); x.setFullYear(x.getFullYear()+(delta*2)); state.timelineStart=startOfYear(x); }
+      renderAll();
+    }
+
+    function containerWidth(){ return document.getElementById('scrollgrid').getBoundingClientRect().width - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--labelw')); }
+    function cellsCount(){
+      if(state.zoom==='day'){ const totalMins = state.workHours ? ((state.workEnd.h*60+state.workEnd.m) - (state.workStart.h*60+state.workStart.m)) : 24*60; return Math.ceil(totalMins / state.minuteStep); }
+      if(state.zoom==='week') return 7;
+      if(state.zoom==='month') return 31; 
+      if(state.zoom==='year') return 12;
+      if(state.zoom==='2year') return 24;
+      return 31;
+    }
+    function unitWidth(){
+      if(state.fitWidth){ return Math.max(24, Math.floor(containerWidth() / cellsCount())); }
+      if(state.zoom==='day') return 48 * (state.minuteStep/60);
+      if(state.zoom==='week') return 84;
+      if(state.zoom==='month')return 36;
+      if(state.zoom==='year') return 84;
+      if(state.zoom==='2year') return 60;
+      return 64;
+    }
+    function timelineWidth(){ return unitWidth() * cellsCount(); }
+    function visibleRange(){
+      const s=state.timelineStart;
+      if(state.zoom==='day'){
+        const base = startOfDay(s); const start = new Date(base); const end = new Date(base);
+        if(state.workHours){ start.setHours(state.workStart.h, state.workStart.m,0,0); end.setHours(state.workEnd.h, state.workEnd.m,0,0);}
+        else { end.setHours(23,59,59,999); }
+        return {start, end};
+      }
+      if(state.zoom==='week')  return {start:s, end:addDays(s, 7)};
+      if(state.zoom==='month') return {start:s, end:addDays(s, 31)};
+      if(state.zoom==='year')  return {start:s, end:new Date(s.getFullYear(), s.getMonth()+12, 0)};
+      if(state.zoom==='2year') return {start:s, end:new Date(s.getFullYear(), s.getMonth()+24, 0)};
+      return {start:s, end:addDays(s, 30)};
+    }
+    function inRange(d, range){ return d && d<=range.end && addMinutes(d,1)>=range.start; }
+    function isWeekendDate(d){ const dow=d.getDay(); return dow===6 || dow===0; }
+    function isHolidayDate(d){ return state.holidays.has(fmtDate(d)); }
+
+    /* ------------------ Status Bar (Run Time - Downtime) ------------------ */
+    function renderStatusbar(){
+      const sb=document.getElementById('statusbar'); sb.innerHTML=''; const now=new Date();
+      for(const m of state.machines){
+        for(const slot of getSlots(m.id)){
+          const card=document.createElement('div'); card.className='statuscard';
+          const h4=document.createElement('h4'); const light=document.createElement('span'); light.className='status-light';
+          const p=document.createElement('div'); p.className='muted';
+          // Find running task using adjusted end time logic if needed, but for simplicity we check if NOW is between Start and End
+          const running = state.tasks.find(t=> {
+              if(t.machine_id!==m.id || t.slot_id!==slot.id || !t.start || t.status==='planned') return false;
+              const s = fromISO(t.start);
+              const e = getAdjustedEndTime(t); // Use adjusted end
+              return now >= s && now < e;
+          });
+
+          if(running){
+  // 1. Check if we are currently inside a downtime window
+  const activeDowntime = (running.downtime_logs || []).find(log => {
+    const dStart = new Date(log.start);
+    // If no end time, it's currently down. If there is an end time, check if now is active.
+    return now >= dStart && (!log.end || now < new Date(log.end));
+  });
+
+  if (activeDowntime) {
+    // --- DOWNTIME STATE ---
+    light.style.background = '#ef4444'; // Red color
+    light.style.boxShadow = '0 0 6px #ef4444';
+    
+    // Optional: Calculate how long it has been down
+    const downStart = new Date(activeDowntime.start);
+    const downDuration = ((now - downStart) / 3600000).toFixed(1);
+
+    p.innerHTML = `<span style="color:#fca5a5">⚠ DOWN (${activeDowntime.reason || 'No reason'}) • ${downDuration}h</span>`;
+  } else {
+    // --- RUNNING STATE ---
+    light.classList.add('on'); // Green (default class)
+    light.style.background = ''; // Reset inline style
+    light.style.boxShadow = '';
+    
+    const end = getAdjustedEndTime(running);
+    const remain = Math.max(0, hoursBetween(now, end));
+    p.textContent = `Running: ${running.bearing_no} # ${running.name} • ${remain.toFixed(1)} h remain`;
+  }
+
+  card.addEventListener('click', ()=> showStatusDetail(m, slot, running, null));
+}
+          const dot=document.createElement('span'); dot.className='dot'; dot.style.background = machineColors[m.id] || '#1d3e45';
+          h4.appendChild(light); h4.appendChild(dot); h4.appendChild(document.createTextNode(`${m.name} — ${slot.name}`));
+          card.appendChild(h4); card.appendChild(p); sb.appendChild(card);
+        }
+      }
+    }
+    
+    function showStatusDetail(machine, slot, running, remain){
+      const modal=document.getElementById('status-modal');
+      const details=document.getElementById('status-details');
+      details.innerHTML='';
+      
+      const addRow=(label,value)=>{
+        const r=document.createElement('div'); r.className='row';
+        const l=document.createElement('strong'); l.textContent=label+':';
+        const v=document.createElement('span'); v.textContent=value||'—';
+        r.appendChild(l); r.appendChild(v); details.appendChild(r);
+      };
+      
+      addRow('Machine', machine.name);
+      addRow('Slot', slot.name);
+      
+      if(running){
+        const s=new Date(running.start);
+        
+        // 🔥 Use Helper for total downtime & end time
+        const e = getAdjustedEndTime(running);
+        const dtHours = getDowntimeHours(running);
+
+        function updateTimers(){
+          const now = new Date();
+          
+          // Total elapsed time since start (Raw)
+          const totalElapsed = (now - s) / 3600000;
+          
+          // Net Running Time = Total Elapsed - Downtime
+          const runH = Math.max(0, totalElapsed - dtHours);
+          const remainH = Math.max(0, (e - now) / 3600000);
+
+          details.innerHTML = `
+            <div class='row'><strong>Machine:</strong><span>${machine.name}</span></div>
+            <div class='row'><strong>Slot:</strong><span>${slot.name}</span></div>
+            <div class='row'><strong>Test:</strong><span>${running.bearing_no} # ${running.name}</span></div>
+            <div class='row'><strong>Start:</strong><span>${fmtDate(s)} ${fmtTime(s)}</span></div>
+            
+            <div style="margin-top:8px; padding-top:8px; border-top:1px solid #333;">
+                <div class='row'><strong>🛑 Total Downtime:</strong>
+                  <span style="color:#ef4444">${fmtDuration(dtHours)}</span></div>
+
+                <div class='row'><strong>⏱ Net Running Time:</strong>
+                  <span style="color:#10b981;font-weight:bold">${fmtDuration(runH)}</span></div>
+
+                <div class='row'><strong>⏳ Remaining:</strong>
+                  <span style="color:#f59e0b;font-weight:bold">${fmtDuration(remainH)}</span></div>
+                  
+                <div class='row'><strong>Finish (ETA):</strong>
+                <span style="color:#3b82f6;font-weight:bold">
+                    ${fmtDate(e)} ${fmtTime(e)}
+                </span>
+                </div>
+            </div>
+          `;
+        }
+
+        updateTimers();
+        window.statusLiveTimer = setInterval(updateTimers,1000);
+        
+      } else {
+        details.innerHTML = `
+          <div class='row'><strong>Machine:</strong><span>${machine.name}</span></div>
+          <div class='row'><strong>Slot:</strong><span>${slot.name}</span></div>
+          <div class='row'><strong>Status:</strong><span>Idle</span></div>
+        `;
+      }
+      modal.style.display='flex';
+    }
+    document.getElementById('status-close').addEventListener('click', ()=>{ document.getElementById('status-modal').style.display='none'; clearInterval(window.statusLiveTimer); });
+    document.getElementById('status-modal').addEventListener('click', (e)=>{ if(e.target.id==='status-modal'){ e.target.style.display='none'; clearInterval(window.statusLiveTimer); } });
+
+    /* ------------------ Render Header/Grid ------------------ */
+    function renderHeader(){
+      document.documentElement.style.setProperty('--timeline-width', timelineWidth()+'px'); document.documentElement.style.setProperty('--unit', unitWidth()+'px');
+      const grid=document.getElementById('scrollgrid'); grid.innerHTML='';
+      const labelHeader=document.createElement('div'); labelHeader.className='labels-header'; labelHeader.textContent='Machines / Slots'; grid.appendChild(labelHeader);
+      const timeHeader=document.createElement('div');  timeHeader.className='time-header';  grid.appendChild(timeHeader);
+
+      const s=state.timelineStart; const cells = cellsCount();
+      if(state.zoom==='day'){
+        const range=visibleRange(); 
+        for(let i=0;i<cells;i++){
+          const c=document.createElement('div'); c.className='time-cell';
+          const mins = i*state.minuteStep; const d=new Date(range.start); d.setMinutes(d.getMinutes()+mins);
+          c.textContent=(String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'));
+          timeHeader.appendChild(c);
+        }
+      } 
+      else if(state.zoom==='week' || state.zoom==='month'){
+        for(let i=0; i<cells; i++){
+          const c=document.createElement('div'); c.className='time-cell'; const d = addDays(s, i);
+          if(state.zoom==='month' && (d.getDate()===1 || i===0)){ c.innerHTML = `<b>${d.getDate()}</b><br/><span style='font-size:10px'>${d.toLocaleString('default',{month:'short'})}</span>`; } 
+          else if (state.zoom==='month') { c.textContent = d.getDate(); } else { c.textContent = fmtDate(d).slice(5); }
+          if(isWeekendDate(d)) c.classList.add('weekend'); if(state.showHolidays && isHolidayDate(d)) c.classList.add('holiday');
+          timeHeader.appendChild(c);
+        }
+      } 
+      else if(state.zoom==='year' || state.zoom==='2year'){
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        for(let i=0; i<cells; i++){
+          const c=document.createElement('div'); c.className='time-cell'; const d = new Date(s.getFullYear(), s.getMonth() + i, 1);
+          c.innerHTML = `${monthNames[d.getMonth()]}<br/><span style="font-size:10px">${d.getFullYear()}</span>`;
+          timeHeader.appendChild(c);
+        }
+      }
+
+      const rangeLabel=document.getElementById('range-label');
+      const endD = (state.zoom === 'day') ? visibleRange().end : (state.zoom === 'year' || state.zoom === '2year') ? new Date(s.getFullYear(), s.getMonth()+cells, 0) : addDays(s, cells);
+      rangeLabel.textContent = `${fmtDate(s)} — ${fmtDate(endD)}`;
+      renderMachineLegend();
+    }
+    function renderMachineLegend(){
+      const el=document.getElementById('machine-legend'); el.innerHTML='';
+      for(const m of state.machines){
+        const dot=document.createElement('span'); dot.className='dot'; dot.style.background = machineColors[m.id] || '#1d3e45';
+        const label=document.createElement('span'); label.textContent = `${m.name}`;
+        const wrap=document.createElement('span'); wrap.style.display='inline-flex'; wrap.style.alignItems='center'; wrap.style.gap='6px';
+        wrap.appendChild(dot); wrap.appendChild(label); el.appendChild(wrap);
+      }
+    }
+
+    function paintBands(row){
+      const unit=unitWidth(); const s=state.timelineStart; const cells = cellsCount();
+      if(state.zoom==='week' || state.zoom==='month'){
+        for(let i=0; i<cells; i++){
+          const d = addDays(s, i); const left = i * unit;
+          if(isWeekendDate(d)){ const band=document.createElement('div'); band.className='weekend-band'; band.style.left=left+'px'; band.style.width=unit+'px'; row.appendChild(band); }
+          if(state.showHolidays && isHolidayDate(d)){ const band=document.createElement('div'); band.className='holiday-band'; band.style.left=left+'px'; band.style.width=unit+'px'; row.appendChild(band); }
+        }
+      }
+    }
+
+    /* ------------------ Conflict Logic ------------------ */
+    function overlaps(aStart, aDurationH, bStart, bDurationH){
+      const aS = fromISO(aStart), aE = addHours(aS, aDurationH);
+      const bS = fromISO(bStart), bE = addHours(bS, bDurationH);
+      return aS < bE && bS < aE;
+    }
+    function hasSlotConflict(task, ignoreId=null){
+      if(task.status === 'planned') return false;
+      if(!task.start || !task.machine_id || !task.slot_id) return false;
+      const sameSlotActual = state.tasks.filter(t => t.machine_id===task.machine_id && t.slot_id===task.slot_id && t.start && (t.status!=='planned'));
+      for(const t of sameSlotActual){
+        if(ignoreId && String(t.id)===String(ignoreId)) continue;
+        if(overlaps(task.start, task.duration_hours, t.start, t.duration_hours)) return true;
+      }
+    }
+
+    /* ------------------ Chart Rendering (With Downtime) ------------------ */
+    function renderChart(){
+      const grid=document.getElementById('scrollgrid');
+      const unit=unitWidth(); const s=state.timelineStart; const range=visibleRange();
+      const machines = state.focusMachineId ? state.machines.filter(x=>x.id===state.focusMachineId) : state.machines;
+
+      for(const m of machines){
+        const slots = getSlots(m.id);
+        for(const slot of slots){
+          const l=document.createElement('div'); l.className='row-label';
+          l.innerHTML = `<span class="mname">${m.name}</span><span class="sname">${slot.name}</span>`;
+          grid.appendChild(l);
+
+          const row=document.createElement('div'); row.className='row-timeline';
+          row.dataset.machine=m.id; row.dataset.slot=slot.id; row.style.setProperty('--unit', unit+'px');
+          grid.appendChild(row);
+
+          const machineClr = machineColors[m.id] || '#1d3e45'; const tint = hexToRGBA(machineClr, 0.18);
+          row.style.setProperty('--machine-row-color', tint); l.style.setProperty('--machine-row-color', tint);
+          paintBands(row);
+
+          for(const t of state.tasks.filter(x=>x.machine_id===m.id && x.slot_id===slot.id)){
+            const sd=fromISO(t.start);
+            // 🔥 Use Adjusted End Time (Start + Duration + Downtime)
+            const ed = getAdjustedEndTime(t);
+
+            if(!sd) continue;
+            if(!inRange(sd, range) && !inRange(ed, range) && !(sd<=range.start && ed>=range.end)) continue;
+            if(state.viewMode==='actual' && t.status==='planned') continue;
+            if(state.viewMode==='planned' && t.status!=='planned') continue;
+
+            const clipStart = sd<range.start ? range.start : sd;
+            const clipEnd   = ed>range.end   ? range.end   : ed;
+
+            const box=document.createElement('div'); box.className='task'; box.dataset.id=t.id;
+            if(t.status==='planned') box.classList.add('planned');
+            if(!state.editMode) box.classList.add('locked');
+            if(String(t.id) === String(state.editingId)) box.classList.add('editing');
+
+            let left=0, w=0;
+            if(state.zoom==='day'){
+              const dayBase = visibleRange().start;
+              left = (minutesBetween(dayBase, clipStart)/state.minuteStep)*unit;
+              w    = (minutesBetween(clipStart, clipEnd)/state.minuteStep)*unit;
+            } 
+            else if(state.zoom==='week' || state.zoom==='month'){
+              const diffMs = clipStart - s; 
+              left = (diffMs / (1000 * 60 * 60 * 24)) * unit;
+              w = ((clipEnd - clipStart) / (1000 * 60 * 60 * 24)) * unit;
+            }
+            else if(state.zoom==='year' || state.zoom==='2year'){
+               const daysPerUnit = 30.44; 
+               left = ((clipStart - s) / (1000 * 60 * 60 * 24) / daysPerUnit) * unit;
+               w = ((clipEnd - clipStart) / (1000 * 60 * 60 * 24) / daysPerUnit) * unit;
+            }
+
+            const clr = barColor(t);
+            box.style.left = Math.max(0,left)+'px'; box.style.width = Math.max(24,w)+'px';
+            box.style.background = clr; box.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--bar-border').trim() || '#0f172a';
+
+            const label = `${t.bearing_no||''} # ${t.name||''}`.trim();
+            const downtimeH = getDowntimeHours(t);
+            let tooltipText = `${label} • ${t.duration_hours}h`;
+            if(downtimeH > 0) tooltipText += ` (+${downtimeH.toFixed(1)}h down)`;
+            tooltipText += `\nEnd: ${fmtDate(ed)} ${fmtTime(ed)}`;
+            box.title = tooltipText;
+
+            box.innerHTML = `${sd<range.start?'<span class="arrow">◀</span>':''} <span class="swatch" style="background:${clr}"></span> <span class="name">${label}</span> <span class="meta">${t.duration_hours}h</span> <span class="eta">→ ${fmtDate(ed)} ${fmtTime(ed)}</span> ${ed>range.end?'<span class="arrow">▶</span>':''}`;
+
+            // 🔥 RENDER DOWNTIME BARS
+            if (t.downtime_logs && t.downtime_logs.length > 0) {
+                const totalDurationMs = ed.getTime() - sd.getTime();
+                t.downtime_logs.forEach(log => {
+                    const ls = new Date(log.start);
+                    const le = log.end ? new Date(log.end) : new Date(); 
+                    const relativeLeft = ((ls.getTime() - sd.getTime()) / totalDurationMs) * 100;
+                    const relativeWidth = ((le.getTime() - ls.getTime()) / totalDurationMs) * 100;
+                    
+                    const dtBar = document.createElement('div');
+                    dtBar.style.position = 'absolute';
+                    dtBar.style.left = Math.max(0, relativeLeft) + '%';
+                    dtBar.style.width = Math.min(100 - Math.max(0, relativeLeft), relativeWidth) + '%';
+                    dtBar.style.top = '0'; dtBar.style.bottom = '0';
+                    dtBar.style.background = 'repeating-linear-gradient(45deg, rgba(0,0,0,0.5), rgba(0,0,0,0.5) 5px, rgba(0,0,0,0.6) 5px, rgba(0,0,0,0.6) 10px)';
+                    dtBar.style.boxShadow = 'inset 0 0 5px rgba(0,0,0,0.8)';
+                    dtBar.style.zIndex = '5'; dtBar.style.pointerEvents = 'none';
+                    dtBar.title = `Downtime: ${log.reason}`;
+                    box.appendChild(dtBar);
+                });
+            }
+
+            if(hasSlotConflict(t, t.id)) box.classList.add('conflict');
+            if(state.editMode){
+                const hl = document.createElement('div'); hl.className='resize-handle left';
+                const hr = document.createElement('div'); hr.className='resize-handle right';
+                box.appendChild(hl); box.appendChild(hr);
+            }
+
+            box.addEventListener('click', (e)=> {
+                if(e.target.classList.contains('resize-handle')) return;
+                loadIntoEditor(t.id);
+            });
+            makeDraggable(box); makeResizable(box); row.appendChild(box);
+          }
+        }
+      }
+    }
+
+    /* ------------------ Unscheduled & All Tests ------------------ */
+    function renderUnscheduled(){
+      const wrap=document.getElementById('unscheduled'); wrap.innerHTML='';
+      for(const t of state.tasks.filter(x=> !x.machine_id || !x.slot_id || !x.start )){
+        const box=document.createElement('div'); box.className='task unscheduled'; box.dataset.id=t.id;
+        const clr=barColor(t); const label=`${t.bearing_no||''} # ${t.name||''}`.trim();
+        box.style.background=clr;
+        box.innerHTML=`<span class="swatch" style="background:${clr}"></span><span class="name" title="${label}">${label}</span><span class="meta" title="${t.duration_hours}h">${t.duration_hours}h</span>`;
+        box.addEventListener('click',()=>{ state.selectedUnscheduledId=t.id; loadIntoEditor(t.id); highlightSelectedUnscheduled(); });
+        makeDraggable(box); wrap.appendChild(box);
+      }
+      highlightSelectedUnscheduled();
+    }
+    function highlightSelectedUnscheduled(){
+      Array.from(document.getElementById('unscheduled').children).forEach(el=>{
+        el.style.outline = (String(el.dataset.id)===String(state.selectedUnscheduledId)) ? '2px solid var(--accent)' : 'none';
+      });
+    }
+
+    function renderAllTests(){
+        const wrap = document.getElementById('all-tests'); wrap.innerHTML = '';
+        const search = document.getElementById('test-search')?.value.toLowerCase() || "";
+        const sort = document.getElementById('test-sort')?.value || "date";
+        const filter = document.getElementById('test-filter')?.value || "all";
+        let tasks = state.tasks.slice();
+        tasks = tasks.filter(t=>{
+            if(filter==="planned") return t.status==="planned";
+            if(filter==="actual")  return t.status!=="planned" && t.start;
+            if(filter==="unscheduled") return !t.start;
+            return true;
+        });
+        if(search){
+            const keys = search.replace(/,/g," ").split(/\s+/).filter(k => k.length);
+            tasks = tasks.filter(t=>{ const text = `${t.bearing_no||""} ${t.name||""}`.toLowerCase(); return keys.every(k => text.includes(k)); });
+        }
+        tasks.sort((a,b)=>{
+            if(sort==="name") return (a.name||"").localeCompare(b.name||"");
+            if(sort==="bearing") return (a.bearing_no||"").localeCompare(b.bearing_no||"");
+            if(sort==="duration") return a.duration_hours - b.duration_hours;
+            if(sort==="date"){ return (a.start?new Date(a.start):Infinity) - (b.start?new Date(b.start):Infinity); }
+        });
+        for(const t of tasks){
+            const div=document.createElement('div'); div.className='test-item';
+            div.innerHTML = `<span class="dot" style="background:${barColor(t)}"></span><div class="title">${t.start?fmtDate(new Date(t.start))+" ":""}${t.bearing_no||""} # ${t.name}</div>`;
+            const edit=document.createElement('button'); edit.textContent="Edit"; edit.onclick=()=>loadIntoEditor(t.id);
+            const copy=document.createElement('button'); copy.textContent="Copy"; copy.onclick=()=>duplicateTask(t.id);
+            const del=document.createElement('button'); del.textContent="Delete"; del.style.background="#7f1d1d"; del.onclick=()=>deleteTest(t.id);
+            div.append(edit,copy,del); wrap.appendChild(div);
+        }
+    }
+    ["test-search","test-sort","test-filter"].forEach(id=>{ document.getElementById(id)?.addEventListener("input",renderAllTests); });
+
+    function renderAll(){ renderStatusbar(); renderHeader(); renderChart(); renderUnscheduled(); renderAllTests();renderNowLine(); }
+
+    /* ------------------ Drag & Drop ------------------ */
+    function makeDraggable(el){
+  if(!state.editMode) return; 
+
+  // Use touchAction none to prevent browser scrolling while holding
+  el.style.touchAction = 'none';
+
+  const onPointerDown = (e) => {
+    // 1. Basic checks
+    if (e.button !== 0 || e.target.classList.contains('resize-handle')) return;
+    
+    // Prevent default to stop native behaviors (scrolling, text selection)
+    // Note: This suppresses the native 'click' event, so we handle clicks manually in onPointerUp
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    const task_id = el.dataset.id;
+    const originalTask = state.tasks.find(t => String(t.id) === String(task_id));
+    if(!originalTask) return;
+
+    // 2. Setup State
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const rect = el.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    let isDragging = false;
+    let dragTimer = null;
+    let ghost = null;
+
+    // 3. Define the Drag Activation Logic (The "Hold")
+    const activateDrag = () => {
+        isDragging = true;
+        state.dragging = true;
+
+        // Create Ghost
+        ghost = el.cloneNode(true);
+        ghost.style.position = 'fixed';
+        ghost.style.left = rect.left + 'px';
+        ghost.style.top = rect.top + 'px';
+        ghost.style.width = rect.width + 'px';
+        ghost.style.height = rect.height + 'px';
+        ghost.style.boxShadow = '0 10px 20px rgba(0,0,0,0.4)';
+        ghost.style.zIndex = '10000';
+        ghost.style.pointerEvents = 'none'; 
+        ghost.style.opacity = '0.9';
+        ghost.classList.add('dragging-ghost');
+
+        // Setup Tooltip
+        let tooltip = ghost.querySelector('.drag-tooltip');
+        if(!tooltip){
+            tooltip = document.createElement('div');
+            tooltip.className = 'drag-tooltip';
+            ghost.appendChild(tooltip);
+        }
+        tooltip.style.display = 'block';
+
+        document.body.appendChild(ghost);
+        
+        // Visual Feedback for "Active" state
+        el.style.opacity = '0.3';
+        ghost.animate([
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.03)' }
+        ], { duration: 150, fill: 'forwards' });
+    };
+
+    // 4. Start the Hold Timer (e.g. 300ms)
+    dragTimer = setTimeout(activateDrag, 300);
+
+    // 5. Move Listener
+    const onPointerMove = (ev) => {
+      if(!isDragging) {
+         // If drag hasn't started yet, check for accidental movement
+         const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
+         if(dist > 5) {
+             // Moved too much before timer fired -> Cancel drag intent (prevent sloppy clicks)
+             clearTimeout(dragTimer);
+         }
+         return;
+      }
+
+      // --- DRAGGING LOGIC ---
+      ghost.style.left = (ev.clientX - offsetX) + 'px';
+      ghost.style.top = (ev.clientY - offsetY) + 'px';
+
+      // Tooltip Logic
+      const grid = document.getElementById('scrollgrid');
+      const gridRect = grid.getBoundingClientRect();
+      const labelWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--labelw')) || 0;
+      
+      const currentGhostLeft = ev.clientX - offsetX;
+      const relativeX = (currentGhostLeft - gridRect.left) + grid.scrollLeft - labelWidth;
+      const safeX = Math.max(0, relativeX);
+      const unit = unitWidth();
+      
+      let displayDate;
+      if(state.zoom === 'day'){
+         const mins = safeX * (state.minuteStep / unit);
+         displayDate = addMinutes(visibleRange().start, mins);
+      } else if (state.zoom === 'week' || state.zoom === 'month'){
+         const days = safeX * (1/unit);
+         displayDate = addDays(state.timelineStart, days);
+      } else {
+         const days = safeX * (30.44/unit);
+         displayDate = addDays(state.timelineStart, days);
+      }
+
+      if(ghost.querySelector('.drag-tooltip')){
+          const tt = ghost.querySelector('.drag-tooltip');
+          if(state.zoom === 'year' || state.zoom === '2year'){
+              tt.textContent = fmtDate(displayDate);
+          } else {
+              tt.textContent = `${fmtDate(displayDate)} ${fmtTime(displayDate).slice(0,5)}`;
+          }
+      }
+    };
+
+    // 6. Up Listener (Drop or Click)
+    const onPointerUp = async (ev) => {
+      clearTimeout(dragTimer);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      
+      // Case A: Drag never activated (Timer didn't finish or cancelled)
+      if(!isDragging) {
+          const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
+          // Only trigger Editor if movement was very small (clean click)
+          // This ignores sloppy swipes that were meant to be drags but were too fast
+          if(dist < 5) {
+              loadIntoEditor(task_id);
+          }
+          return;
+      }
+
+      // Case B: Drag was active -> Perform Drop
+      state.dragging = false;
+      const elementsUnder = document.elementsFromPoint(ev.clientX, ev.clientY);
+      const targetRow = elementsUnder.find(x => x.classList.contains('row-timeline'));
+
+      if(targetRow){
+         const grid = document.getElementById('scrollgrid');
+         const unit = unitWidth();
+         const rowRect = targetRow.getBoundingClientRect();
+
+         const currentGhostLeft = ev.clientX - offsetX;
+         const relX = (currentGhostLeft - rowRect.left) + grid.scrollLeft;
+         
+         let rawDate;
+         if(state.zoom === 'day'){
+             rawDate = addMinutes(visibleRange().start, relX * (state.minuteStep / unit));
+         } else if (state.zoom === 'week' || state.zoom === 'month') {
+             rawDate = addDays(state.timelineStart, relX * (1/unit));
+         } else {
+             rawDate = addDays(state.timelineStart, relX * (30.44/unit));
+         }
+
+         let snappedDate = new Date(rawDate);
+         if(state.zoom === 'day'){
+             const ms = state.minuteStep * 60000;
+             snappedDate = new Date(Math.round(snappedDate.getTime()/ms) * ms);
+         } else {
+             snappedDate.setMinutes(0,0,0); 
+         }
+
+         const newMachineId = targetRow.dataset.machine;
+         const newSlotId = targetRow.dataset.slot;
+
+         const proposal = { ...originalTask, machine_id: newMachineId, slot_id: newSlotId, start: snappedDate.toISOString() };
+         
+         if(hasSlotConflict(proposal, originalTask.id)){
+             alert('Conflict: Target slot overlaps with existing task or holiday.');
+         } else {
+             pushHistory();
+             originalTask.machine_id = newMachineId;
+             originalTask.slot_id = newSlotId;
+             originalTask.start = snappedDate.toISOString();
+             await saveSchedule();
+         }
+      }
+
+      if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      el.style.opacity = '1';
+      renderAll();
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  el.addEventListener('pointerdown', onPointerDown);
+}
+    function makeResizable(box){
+      if(!state.editMode) return; 
+      const id = box.dataset.id; const task = state.tasks.find(t=> String(t.id)===String(id)); if(!task || !task.start) return;
+      const leftHandle = box.querySelector('.resize-handle.left'); const rightHandle= box.querySelector('.resize-handle.right');
+      if(!leftHandle || !rightHandle) return; 
+      function onResizeStart(e, side){
+        e.stopPropagation(); e.preventDefault(); const unit=unitWidth(); const startX = e.clientX; const orig = {start: new Date(task.start), durH: task.duration_hours};
+        function onMove(ev){
+          const dx = ev.clientX - startX;
+          let newStart = new Date(orig.start), newDur = orig.durH;
+          if(state.zoom==='day'){
+            const mp = state.minuteStep / unit; const minD = dx * mp;
+            if(side==='left'){ newStart = addMinutes(orig.start, minD); newDur = orig.durH - (minD/60); } else { newDur = orig.durH + (minD/60); }
+          } else if(state.zoom==='week' || state.zoom==='month'){
+            const hp = 24 / unit; const hD = dx * hp;
+            if(side==='left'){ newStart = addHours(orig.start, hD); newDur = orig.durH - hD; } else { newDur = orig.durH + hD; }
+          } else {
+             const hp = (30.44*24)/unit; const hD = dx * hp;
+             if(side==='left'){ newStart = addHours(orig.start, hD); newDur = orig.durH - hD; } else { newDur = orig.durH + hD; }
+          }
+          if(newDur<=0) return;
+          const proposal = { ...task, start: iso(newStart), duration_hours: newDur };
+          if(!hasSlotConflict(proposal, task.id)) { task.start=proposal.start; task.duration_hours=newDur; renderAll(); }
+        }
+        function onUp(){ window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); pushHistory(); saveSchedule(); }
+        window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+      }
+      leftHandle.addEventListener('pointerdown', e=> onResizeStart(e,'left')); rightHandle.addEventListener('pointerdown', e=> onResizeStart(e,'right'));
+    }
+
+    /* ------------------ Drag to Create ------------------ */
+    let creatorState = { active: false, startX: 0, row: null, ghost: null };
+    const gridArea = document.getElementById('scrollgrid');
+    gridArea.addEventListener('mousedown', (e) => {
+        if (slideState.active || e.button !== 0 || e.target.closest('.task') || e.target.closest('.resize-handle')) return;
+        const row = e.target.closest('.row-timeline'); if (!row) return;
+        creatorState.active = true; creatorState.row = row;
+        const rect = row.getBoundingClientRect(); creatorState.startX = (e.clientX - rect.left) + gridArea.scrollLeft;
+        const ghost = document.createElement('div'); ghost.className = 'creation-ghost'; ghost.style.left = creatorState.startX + 'px'; ghost.style.width = '0px';
+        row.appendChild(ghost); creatorState.ghost = ghost; e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!creatorState.active) return;
+        const rect = creatorState.row.getBoundingClientRect(); const currentX = (e.clientX - rect.left) + gridArea.scrollLeft;
+        const width = Math.abs(currentX - creatorState.startX); const left = Math.min(currentX, creatorState.startX);
+        creatorState.ghost.style.width = width + 'px'; creatorState.ghost.style.left = left + 'px';
+        const unit = unitWidth(); let hours = (state.zoom === 'day') ? (width * (state.minuteStep / unit) / 60) : (width / unit * 24);
+        creatorState.ghost.textContent = `${hours.toFixed(1)}h`;
+    });
+    window.addEventListener('mouseup', () => {
+        if (!creatorState.active) return;
+        const ghost = creatorState.ghost; const width = parseFloat(ghost.style.width); const left = parseFloat(ghost.style.left);
+        if(ghost.parentNode) ghost.parentNode.removeChild(ghost); creatorState.active = false;
+        if (width < 10) return;
+        const unit = unitWidth(); let startDate, durationHours;
+        if (state.zoom === 'day') {
+            const offsetMins = left * (state.minuteStep / unit); const durationMins = width * (state.minuteStep / unit);
+            startDate = addMinutes(visibleRange().start, offsetMins); durationHours = durationMins / 60;
+            const ms = 1000 * 60 * state.minuteStep; startDate = new Date(Math.round(startDate.getTime() / ms) * ms);
+        } else {
+            const offsetDays = left / unit; const durationDays = width / unit;
+            startDate = addDays(state.timelineStart, offsetDays); durationHours = durationDays * 24; startDate.setMinutes(0,0,0,0);
+        }
+        document.getElementById('input-machine').value = creatorState.row.dataset.machine; fillSlotSelect(); document.getElementById('input-slot').value = creatorState.row.dataset.slot;
+        document.getElementById('input-date').value = fmtDate(startDate); document.getElementById('input-time').value = fmtTime(startDate).slice(0,5);
+        document.getElementById('input-hours').value = Math.max(1, Math.round(durationHours));
+        state.editingId = null; document.querySelectorAll('.task.editing').forEach(el => el.classList.remove('editing'));
+        
+        // 🔥 RESET DOWNTIME FOR NEW TASK
+        tempDowntimeLog = []; renderDowntimeList();
+        
+        updateEstimate();
+        const sidebar = document.querySelector('.sidebar'); sidebar.style.transition = 'box-shadow 0.2s'; sidebar.style.boxShadow = '0 0 0 4px rgba(6, 182, 212, 0.5)'; setTimeout(() => sidebar.style.boxShadow = '', 400); document.getElementById('input-name').focus();
+    });
+
+    /* ------------------ Editor Logic ------------------ */
+    function getSlots(machineId){
+      if(['mcb'].includes(machineId)) return [{id:'1-1', name:'1-1'}, {id:'1-2', name:'1-2'}, {id:'2-1', name:'2-1'}, {id:'2-2', name:'2-2'}];
+      if(machineId === 'wp_v') return [{id:'A',name:'A'}];
+      if(['hs_mb','mb_new','mb_old','tp'].includes(machineId)) return [{id:'A',name:'A'}, {id:'B',name:'B'}];
+      return [{id:'S1',name:'Slot 1'}];
+    }
+    function fillMachineSelects(){
+      const sel=document.getElementById('input-machine'); const focusSel=document.getElementById('focus-machine');
+      sel.innerHTML=''; focusSel.innerHTML=''; focusSel.appendChild(new Option('(All machines)',''));
+      for(const m of state.machines){ sel.appendChild(new Option(m.name, m.id)); focusSel.appendChild(new Option(m.name, m.id)); }
+      focusSel.value = state.focusMachineId || ''; fillSlotSelect(); fillPalette();
+    }
+    function fillSlotSelect(){
+      const machineId=document.getElementById('input-machine').value || state.machines[0]?.id || '';
+      const sel=document.getElementById('input-slot'); sel.innerHTML='';
+      for(const s of getSlots(machineId)){ sel.appendChild(new Option(s.name, s.id)); }
+    }
+    document.getElementById('input-machine').addEventListener('change', fillSlotSelect);
+    function fillPalette(){
+      const pal=document.getElementById('palette'); pal.innerHTML='';
+      const colors=['#1d3e45','#ef4444','#f59e0b','#84cc16','#22c55e','#0ea5e9','#3b82f6','#8b5cf6','#eab308','#14b8a6','#e11d48','#f97316'];
+      for(const c of colors){
+        const b=document.createElement('button'); b.style.width='20px'; b.style.height='20px'; b.style.border='1px solid var(--grid)'; b.style.borderRadius='4px'; b.style.background=c; b.title=c;
+        b.addEventListener('click', ()=>{ document.getElementById('input-color').value = c; }); pal.appendChild(b);
+      }
+    }
+
+    // 1. Updated loadIntoEditor
+    function loadIntoEditor(id){
+      const t=state.tasks.find(x=> String(x.id)===String(id)); if(!t) return;
+      state.editingId=id;
+      document.getElementById('input-name').value = t.name||'';
+      document.getElementById('input-bearing').value = t.bearing_no||'';
+      document.getElementById('input-hours').value = t.duration_hours||'';
+      document.getElementById('input-machine').value = t.machine_id||'';
+      fillSlotSelect(); document.getElementById('input-slot').value = t.slot_id||'';
+      document.getElementById('input-color').value = t.color || barColor(t);
+      document.getElementById('input-plan').checked = (t.status==='planned');
+      if(t.start){ const d=new Date(t.start); document.getElementById('input-date').value = fmtDate(d); document.getElementById('input-time').value = fmtTime(d).slice(0,5); } 
+      else { document.getElementById('input-date').value=''; document.getElementById('input-time').value=''; }
+      
+      // 🔥 NEW: Load Downtime Logs
+      tempDowntimeLog = t.downtime_logs ? [...t.downtime_logs] : [];
+      renderDowntimeList();
+
+      updateEstimate();
+      document.querySelectorAll('.task.editing').forEach(el => el.classList.remove('editing'));
+      const activeBar = document.querySelector(`.task[data-id="${id}"]`); if(activeBar) activeBar.classList.add('editing');
+    }
+
+    // 2. Render Downtime List
+    function renderDowntimeList() {
+      const container = document.getElementById('downtime-list'); container.innerHTML = '';
+      tempDowntimeLog.forEach((log, index) => {
+        const div = document.createElement('div'); div.className = 'pill'; div.style.background = 'rgba(239, 68, 68, 0.2)'; div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.marginBottom = '4px'; div.style.padding = '4px 8px';
+        const s = new Date(log.start); const e = log.end ? new Date(log.end) : null; const diffH = e ? ((e - s) / 3600000).toFixed(1) : '...';
+        div.innerHTML = `<span><b>${diffH}h</b>: ${log.reason}</span> <span class="remove-dt" style="cursor:pointer; color:#fca5a5; font-weight:bold; margin-left:8px;">✖</span>`;
+        div.querySelector('.remove-dt').onclick = (e) => { e.preventDefault(); tempDowntimeLog.splice(index, 1); renderDowntimeList(); updateEstimate(); };
+        container.appendChild(div);
+      });
+    }
+
+    // 3. Add Downtime
+   document.getElementById('add-downtime').addEventListener('click', () => {
+    const start = document.getElementById('dt-start-date').value;
+    const end = document.getElementById('dt-end-date').value;
+    const reason = document.getElementById('dt-reason').value.trim();
+
+    if (!start || !end) {
+        alert('Please enter both start and end times for downtime.');
+        return;
+    }
+
+    const entry = { start, end, reason };
+    
+    // 1. Add to the temporary list for the UI
+    tempDowntimeLog.push(entry);
+
+    // 2. IMPORTANT: If editing a task, save it to the actual task object
+    if (state.editingId) {
+        const task = state.tasks.find(t => String(t.id) === String(state.editingId));
+        if (task) {
+            // Ensure the array exists
+            task.downtime_logs = task.downtime_logs || [];
+            task.downtime_logs.push(entry);
+            
+            // 3. Save to localStorage immediately
+            saveSchedule(); 
+        }
+    }
+
+    renderDowntimeList();
+    updateEstimate(); // Refresh the end-time calculation
+});
+
+    // 4. Update Estimate with Downtime
+    function updateEstimate(){
+      const hours=parseFloat(document.getElementById('input-hours').value||'0');
+      const date=document.getElementById('input-date').value; const time=document.getElementById('input-time').value;
+      const est=document.getElementById('estimate');
+      if(!hours||!date) { est.textContent='—'; return; }
+      const parts=date.split('-'); const y=+parts[0], m=+parts[1]-1, d=+parts[2];
+      const dt=new Date(y,m,d); if(time){ const tp=time.split(':'); dt.setHours(+tp[0], +tp[1], 0, 0);} else { dt.setHours(0,0,0,0);}
+      const endBase = addHours(dt, hours);
+      const dtHours = tempDowntimeLog.reduce((acc, log) => { const s = new Date(log.start); const e = log.end ? new Date(log.end) : new Date(); return acc + (e - s) / 3600000; }, 0);
+      const finalEnd = addHours(endBase, dtHours);
+      if(dtHours > 0) { est.innerHTML = `${fmtDate(finalEnd)} ${fmtTime(finalEnd)} <br><span style="font-size:10px; color:#f87171;">(Includes ${dtHours.toFixed(1)}h downtime)</span>`; } 
+      else { est.textContent = `${fmtDate(finalEnd)} ${fmtTime(finalEnd)}`; }
+    }
+    ['input-hours','input-date','input-time'].forEach(id=> document.getElementById(id).addEventListener('input', updateEstimate));
+
+    // 5. Create Task
+    document.getElementById('create').addEventListener('click', ()=>{
+      const name=document.getElementById('input-name').value.trim();
+      const bearing=document.getElementById('input-bearing').value.trim();
+      const hours=parseFloat(document.getElementById('input-hours').value);
+      const date=document.getElementById('input-date').value; const time=document.getElementById('input-time').value;
+      const machineId=document.getElementById('input-machine').value||null;
+      const slotId=document.getElementById('input-slot').value||null;
+      const color=document.getElementById('input-color').value||null;
+      const isPlan=document.getElementById('input-plan').checked;
+      if(!name||!hours||hours<=0){ alert('Please enter a valid name and hours'); return; }
+      const id=Date.now(); let startISO=null;
+      if(date){ const parts=date.split('-'); const y=+parts[0], m=+parts[1]-1, d=+parts[2]; const dt=new Date(y,m,d); if(time){ const tp=time.split(':'); dt.setHours(+tp[0], +tp[1], 0, 0);} else { dt.setHours(0,0,0,0);} startISO=dt.toISOString(); }
+      const proposal = { id, name, bearing_no:bearing, duration_hours:hours, machine_id:machineId||null, slot_id:slotId||null, start:startISO, status:isPlan?'planned':'active', color:color, downtime_logs: JSON.parse(JSON.stringify(tempDowntimeLog)) };
+      if(hasSlotConflict(proposal)){ alert('Conflict!'); return; }
+      pushHistory(); state.tasks.push(proposal);
+      tempDowntimeLog = []; renderDowntimeList(); // Clear temp logs
+      renderAll(); saveSchedule();
+    });
+
+    // 6. Update Task
+    document.getElementById('update').addEventListener('click', ()=>{
+      const id=state.editingId; if(!id){ alert('Select a test'); return; }
+      const t=state.tasks.find(x=> String(x.id)===String(id)); if(!t) return;
+      pushHistory();
+      t.name = document.getElementById('input-name').value.trim(); t.bearing_no = document.getElementById('input-bearing').value.trim(); t.duration_hours = parseFloat(document.getElementById('input-hours').value);
+      t.machine_id = document.getElementById('input-machine').value||null; t.slot_id = document.getElementById('input-slot').value||null;
+      const date=document.getElementById('input-date').value; const time=document.getElementById('input-time').value;
+      if(date){ const parts=date.split('-'); const y=+parts[0], m=+parts[1]-1, d=+parts[2]; const dt=new Date(y,m,d); if(time){ const tp=time.split(':'); dt.setHours(+tp[0], +tp[1], 0, 0);} else { dt.setHours(0,0,0,0);} t.start = dt.toISOString(); } else { t.start = null; }
+      t.color = document.getElementById('input-color').value||t.color; t.status = document.getElementById('input-plan').checked? 'planned':'active';
+      t.downtime_logs = [...tempDowntimeLog]; // Save Logs
+      if(hasSlotConflict(t, t.id)){ alert('Conflict!'); return; }
+      saveSchedule(); renderAll();
+    });
+
+    document.getElementById('duplicate').addEventListener('click', ()=>{ const id=state.editingId; if(!id){ alert('Select a test to copy'); return; } duplicateTask(id); });
+    function duplicateTask(id){
+      const t=state.tasks.find(x=> String(x.id)===String(id)); if(!t) return;
+      const copy={...t}; copy.id = Date.now(); 
+      // Deep copy logs to prevent reference issues
+      if(copy.downtime_logs) copy.downtime_logs = JSON.parse(JSON.stringify(copy.downtime_logs));
+      if(copy.start){ const d=new Date(copy.start); d.setDate(d.getDate()+1); copy.start=d.toISOString(); }
+      if(hasSlotConflict(copy)){ alert('Copy would overlap.'); }
+      pushHistory(); state.tasks.push(copy); saveSchedule(); renderAll();
+    }
+
+    document.getElementById('remove').addEventListener('click', ()=>{ const id=state.editingId; if(!id){ alert('Select a test to delete'); return; } deleteTest(id); });
+    function deleteTest(id){ pushHistory(); const idx = state.tasks.findIndex(x=> String(x.id)===String(id)); if(idx>=0){ state.tasks.splice(idx,1); saveSchedule(); renderAll(); state.editingId=null; } }
+
+    /* ------------------ UI Helpers ------------------ */
+    document.getElementById('focus-machine').addEventListener('change', (e)=>{ state.focusMachineId = e.target.value; renderAll(); });
+    document.getElementById('clear-focus').addEventListener('click', ()=>{ state.focusMachineId=''; document.getElementById('focus-machine').value=''; renderAll(); });
+    document.getElementById('fit-width').addEventListener('change', (e)=>{ state.fitWidth = e.target.checked; renderAll(); });
+    document.getElementById('work-hours').addEventListener('change', (e)=>{ state.workHours = e.target.checked; renderAll(); });
+    document.getElementById('holiday-layer').addEventListener('change', (e)=>{ state.showHolidays = e.target.checked; renderAll(); });
+    Array.from(document.querySelectorAll('input[name="view-mode"]')).forEach(r=>{ r.addEventListener('change', (e)=>{ state.viewMode = e.target.value; renderAll(); }); });
+    document.getElementById('apply-holidays').addEventListener('click', ()=>{ const ta = document.getElementById('holiday-input'); const lines = (ta.value||'').split(/\r?\n/).map(x=>x.trim()).filter(x=>x); localStorage.setItem('gantt_holidays', ta.value); state.holidays = new Set(lines); renderAll(); });
+    function loadHolidaysFromStorage() { const txt = localStorage.getItem('gantt_holidays'); if(txt){ document.getElementById('holiday-input').value = txt; state.holidays = new Set(txt.split(/\r?\n/).map(x=>x.trim()).filter(x=>x)); } }
+    
+    document.getElementById('jump-go').addEventListener('click', ()=>{
+      const d=document.getElementById('jump-date').value; const m=document.getElementById('jump-month').value; const y=document.getElementById('jump-year').value;
+      if(d){ state.timelineStart = (state.zoom==='day')? startOfDay(new Date(d)) : startOfWeek(new Date(d)); }
+      else if(m){ state.timelineStart = startOfMonth(new Date(m)); }
+      else if(y){ state.timelineStart = startOfYear(new Date(y,0,1)); }
+      renderAll();
+    });
+
+    document.getElementById('export').addEventListener('click', ()=>{
+      const rows = [['ID','Name','Bearing','Machine','Slot','Start','End','Hours','Color','Status']];
+      for(const t of state.tasks){ const s=t.start?new Date(t.start):null; const e=getAdjustedEndTime(t); rows.push([t.id, t.name, t.bearing_no||'', machineName(t.machine_id), t.slot_id||'', s?fmtDate(s)+' '+fmtTime(s):'', e?fmtDate(e)+' '+fmtTime(e):'', t.duration_hours, t.color||'', t.status||'']); }
+      const csv = rows.map(r=> r.map(x=> String(x).replace(/"/g,'""')).map(x=> `"${x}"`).join(',')).join('\r\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download = 'schedule_export.csv'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    function toggleEditModeUI(){ const sb = document.getElementById('sidebar-container'); const box = document.getElementById('edit-mode-toggle'); state.editMode = box.checked; if(state.editMode){ sb.classList.remove('disabled-mode'); } else { sb.classList.add('disabled-mode'); state.editingId = null; } renderAll(); }
+    document.getElementById('edit-mode-toggle').addEventListener('change', toggleEditModeUI);
+
+    function applyTheme(t) { document.body.classList.remove('theme-light', 'theme-dark'); if(t==='light') document.body.classList.add('theme-light'); if(t==='dark') document.body.classList.add('theme-dark'); document.getElementById('theme-selector').value = t; }
+    document.getElementById('theme-selector').addEventListener('change', (e)=>{ applyTheme(e.target.value); localStorage.setItem('gantt_theme', e.target.value); });
+    applyTheme(localStorage.getItem('gantt_theme') || 'default');
+
+    /* ------------------ Slide Nav ------------------ */
+    const slideState = { active: false, isPanning: false, startX: 0, currentX: 0, lastX: 0, velocity: 0, lastTime: 0, rafId: null };
+    document.getElementById('slide-nav-toggle').addEventListener('change', (e) => { slideState.active = e.target.checked; const chartEl = document.querySelector('.chart'); if (slideState.active) { chartEl.classList.add('slide-enabled'); chartEl.style.overflowX = 'hidden'; chartEl.style.cursor = 'grab'; } else { chartEl.classList.remove('slide-enabled'); chartEl.style.overflowX = 'auto'; chartEl.style.cursor = 'default'; cancelAnimationFrame(slideState.rafId); resetTransforms(); } });
+    function elementsToPan() { return document.querySelectorAll('.time-header, .row-timeline'); }
+    function resetTransforms() { elementsToPan().forEach(el => el.style.transform = ''); }
+    function shiftTimelineByUnits(units) { if (units === 0) return; if (state.zoom === 'day') { state.timelineStart = addMinutes(state.timelineStart, units * state.minuteStep); } else if (state.zoom === 'week' || state.zoom === 'month') { state.timelineStart = addDays(state.timelineStart, units); } else { state.timelineStart = new Date(state.timelineStart.getFullYear(), state.timelineStart.getMonth() + units, 1); } }
+    const chartArea = document.querySelector('.chart');
+    chartArea.addEventListener('mousedown', (e) => { if (!slideState.active || e.target.closest('.task') || e.target.classList.contains('resize-handle')) return; cancelAnimationFrame(slideState.rafId); slideState.isPanning = true; slideState.startX = e.clientX; slideState.currentX = e.clientX; slideState.lastX = e.clientX; slideState.velocity = 0; slideState.lastTime = performance.now(); chartArea.classList.add('is-panning'); chartArea.style.cursor = 'grabbing'; });
+    window.addEventListener('mousemove', (e) => { if (!slideState.isPanning || !slideState.active) return; e.preventDefault(); const now = performance.now(); const dt = now - slideState.lastTime; const dist = e.clientX - slideState.lastX; if (dt > 0) slideState.velocity = dist / dt; slideState.lastX = e.clientX; slideState.lastTime = now; slideState.currentX = e.clientX; updateInfiniteScroll(); });
+    function updateInfiniteScroll() { const unit = unitWidth(); const totalDelta = slideState.currentX - slideState.startX; if (Math.abs(totalDelta) >= unit) { const direction = Math.sign(totalDelta); const colsShifted = Math.floor(Math.abs(totalDelta) / unit) * direction; shiftTimelineByUnits(-colsShifted); renderAll(); slideState.startX += (colsShifted * unit); updateDynamicRangeLabel(); } const remainder = slideState.currentX - slideState.startX; elementsToPan().forEach(el => { el.style.transform = `translateX(${remainder}px)`; }); }
+    window.addEventListener('mouseup', (e) => { if (!slideState.isPanning) return; slideState.isPanning = false; chartArea.style.cursor = 'grab'; chartArea.classList.remove('is-panning'); beginInertia(); });
+    function beginInertia() { const friction = 0.92; function step() { if (slideState.isPanning) return; slideState.velocity *= friction; slideState.currentX += slideState.velocity * 16; updateInfiniteScroll(); if (Math.abs(slideState.velocity) > 0.5) { slideState.rafId = requestAnimationFrame(step); } else { finishPan(); } } slideState.rafId = requestAnimationFrame(step); }
+    function finishPan() { resetTransforms(); renderAll(); }
+    function updateDynamicRangeLabel() { const label = document.getElementById('range-label'); const s = state.timelineStart; const cells = cellsCount(); let endD; if (state.zoom === 'day') endD = addMinutes(s, cells * state.minuteStep); else endD = addDays(s, cells); label.textContent = `${fmtDate(s)} — ${fmtDate(endD)}`; label.style.color = "var(--accent)"; }
+    window.addEventListener('mouseup', (e) => { if (slideState.isPanning) finishPan(); }); window.addEventListener('mouseleave', (e) => { if (slideState.isPanning) finishPan(); });
+
+    function machineName(id){ const m=state.machines.find(x=>x.id===id); return m? m.name: ''; }
+    document.getElementById('save-footer').addEventListener('click', saveSchedule);
+    document.querySelectorAll('button[data-zoom]').forEach(btn=> btn.addEventListener('click', ()=> setZoom(btn.dataset.zoom)) );
+    document.getElementById('nav-prev').addEventListener('click', ()=> navigate(-1)); document.getElementById('nav-next').addEventListener('click', ()=> navigate(1));
+    document.getElementById('nav-today').addEventListener('click', ()=>{ state.timelineStart = startOfMonth(new Date()); renderAll(); });
+    document.getElementById('granularity').addEventListener('change', (e)=>{ state.minuteStep = parseInt(e.target.value,10); renderAll(); });
+
+    /* ------------------ Shortcuts & Undo ------------------ */
+    document.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+        if ((e.key === 'Delete' || e.key === 'Backspace') && state.editingId) { if(confirm('Delete selected test?')) deleteTest(state.editingId); }
+        if (e.key === 'ArrowRight') navigate(1); if (e.key === 'ArrowLeft')  navigate(-1);
+        if (e.key === '1') setZoom('day'); if (e.key === '2') setZoom('week'); if (e.key === '3') setZoom('month'); if (e.key === '4') setZoom('year');
+        if (e.key.toLowerCase() === 'e') { const t = document.getElementById('edit-mode-toggle'); t.checked = !t.checked; toggleEditModeUI(); }
+        if (e.key === ' ') { e.preventDefault(); const t = document.getElementById('slide-nav-toggle'); t.checked = !t.checked; t.dispatchEvent(new Event('change')); }
+     // 6. Go to Today (T) - Snaps timeline to current date based on Zoom
+    if (e.key.toLowerCase() === 't') {
+        state.timelineStart = state.zoom==='day'   ? startOfDay(new Date())
+                            : state.zoom==='week'  ? startOfWeek(new Date())
+                            : state.zoom==='month' ? startOfMonth(new Date())
+                            : startOfYear(new Date());
+        renderAll();
+    }});
+    const historyState = { undoStack: [], redoStack: [], maxDepth: 50, isNavigating: false };
+    function pushHistory() { if (historyState.isNavigating) return; const snapshot = JSON.parse(JSON.stringify(state.tasks)); historyState.undoStack.push(snapshot); if (historyState.undoStack.length > historyState.maxDepth) historyState.undoStack.shift(); historyState.redoStack = []; }
+    function performUndo() { if (historyState.undoStack.length === 0) return; const currentSnapshot = JSON.parse(JSON.stringify(state.tasks)); historyState.redoStack.push(currentSnapshot); const prevTasks = historyState.undoStack.pop(); historyState.isNavigating = true; state.tasks = prevTasks; saveSchedule(); renderAll(); historyState.isNavigating = false; }
+    function performRedo() { if (historyState.redoStack.length === 0) return; const currentSnapshot = JSON.parse(JSON.stringify(state.tasks)); historyState.undoStack.push(currentSnapshot); const nextTasks = historyState.redoStack.pop(); historyState.isNavigating = true; state.tasks = nextTasks; saveSchedule(); renderAll(); historyState.isNavigating = false; }
+    document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); performUndo(); } if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); performRedo(); } });
+
+    loadHolidaysFromStorage(); loadSchedule(); setZoom('month'); startSync();
+    // Update the "Now" line every 60 seconds
+    setInterval(renderNowLine, 60000);
+  </script>
+</body>
+</html>

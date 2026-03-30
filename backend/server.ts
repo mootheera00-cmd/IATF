@@ -93,13 +93,16 @@ if (!fs.existsSync(dbPath)) {
 const db = new sqlite3.Database(dbPath);
 
 app.use(helmet());
+const isDev = process.env.NODE_ENV !== 'production';
 const ALLOWED_ORIGINS = new Set(
-  (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((o: string) => o.trim())
+  (process.env.CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173,http://133.124.150.22:5173').split(',').map((o: string) => o.trim())
 );
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow non-browser requests (e.g. curl, server-to-server) only in development
-    if (!origin) return callback(null, process.env.NODE_ENV !== 'production');
+    if (!origin) return callback(null, isDev);
+    // In development, allow all origins so LAN access works freely
+    if (isDev) return callback(null, true);
     if (ALLOWED_ORIGINS.has(origin)) return callback(null, true);
     return callback(new Error(`CORS: origin '${origin}' not allowed`));
   },
@@ -135,8 +138,8 @@ app.use('/uploads/doc-pdf', express.static(path.join(__dirname, 'uploads', 'doc-
 runTempCleanup();
 setInterval(runTempCleanup, 24 * 60 * 60 * 1000);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
 
 export {};

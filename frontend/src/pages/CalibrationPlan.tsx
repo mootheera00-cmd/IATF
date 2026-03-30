@@ -116,7 +116,7 @@ export default function CalibrationPlan() {
   const [picSaving, setPicSaving] = useState(false);
 
   // ── view mode ──────────────────────────────────────────────────────────────
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
   const [calYear, setCalYear]   = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null); // 0-11
 
@@ -488,6 +488,13 @@ export default function CalibrationPlan() {
               {pagePic?.pic_name ? pagePic.pic_name : 'Person In Charge'}
             </button>
           )}
+          <button
+            onClick={() => navigate('/plan/calibration/history')}
+            className="flex items-center gap-2 border border-indigo-300 text-indigo-700 bg-indigo-50 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors"
+          >
+            <History size={16} />
+            History
+          </button>
           <button
             onClick={() => { setForm({ ...emptyForm }); setEditId(null); setError(''); setShowForm(true); }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow"

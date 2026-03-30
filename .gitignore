@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+.venv/
+
+# Build output
+backend/*.js
+backend/*.js.map
+backend/config/*.js
+backend/controllers/*.js
+backend/middleware/*.js
+backend/routes/*.js
+backend/services/*.js
+backend/db/*.js
+backend/tools/*.js
+!backend/server.js
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Uploads & temp files
+backend/uploads/doc-original/*
+backend/uploads/doc-pdf/*
+backend/uploads/staging/*
+backend/tmp-test/
+backend/secure_storage/*
+!backend/uploads/.gitkeep
+!backend/uploads/doc-original/.gitkeep
+!backend/uploads/doc-pdf/.gitkeep
+!backend/uploads/staging/.gitkeep
+!backend/secure_storage/.gitkeep
+
+# Logs
+*.log
+stdout.log
+stderr.log
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+Plan HUB/stdout.log
+Plan HUB/stderr.log
+Plan PT/stdout.log
+Plan PT/stderr.log
+
+# Misc
+*.pptx

@@ -6,7 +6,7 @@ import { notificationAPI } from '../api';
 import {
   Menu, X, Home, FileText, FolderOpen, ClipboardCheck, Settings,
   Bell, LogOut, ChevronRight, ChevronDown, LayoutGrid, User, Search, Database, Network, ClipboardList,
-  Users, Gauge, History as HistoryIcon, Wrench, FlaskConical, ShieldAlert,
+  Users, Gauge, History as HistoryIcon, Wrench, FlaskConical, ShieldAlert, BarChart3,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -24,7 +24,6 @@ interface NotificationItem {
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [planExpanded, setPlanExpanded] = useState(false);
   const [qualityExpanded, setQualityExpanded] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -183,9 +182,8 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/documents', label: 'Document Repository', keywords: 'documents repository controlled IATF level 1 2 3 4 quality manual procedure work instruction form report' },
   { path: '/dcr', label: 'Create/Change Request', keywords: 'dcr change request workflow approvals review submit decision reupload re-upload' },
     { path: '/dcr/create', label: 'Create DCR', keywords: 'create new change request draft' },
-    { path: '/flowchart', label: 'Flowchart', keywords: 'flow chart process map' },
-    { path: '/flowchart/workflow', label: 'Workflow Flowchart', keywords: 'workflow process owner manager document controller' },
-    { path: '/flowchart/kpi', label: 'KPI Flowchart', keywords: 'kpi charts graph performance indicator excel reference' },
+    { path: '/flowchart', label: 'Flowchart', keywords: 'flow chart process map workflow process owner manager document controller' },
+    { path: '/flowchart/kpi', label: 'KPI', keywords: 'kpi charts graph performance indicator excel reference' },
     { path: '/flowchart/procedure', label: 'Procedure Flowchart', keywords: 'procedure acronym terms status reference documents' },
     { path: '/plan', label: 'Plan', keywords: 'planning equipment calibration maintenance training hub powertrain' },
     { path: '/quality', label: 'Quality', keywords: 'quality msa measurement system analysis gauge repeatability reproducibility' },
@@ -251,6 +249,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/documents', label: 'Documents', icon: FolderOpen },
   { path: '/dcr', label: 'Create/Change Request', icon: ClipboardCheck },
     { path: '/flowchart', label: 'Flowchart', icon: Network },
+    { path: '/flowchart/kpi', label: 'KPI', icon: BarChart3 },
     { path: '/plan', label: 'Plan', icon: ClipboardList },
     { path: '/quality', label: 'Quality', icon: FlaskConical },
     { path: '/safety', label: 'Risk Assessment', icon: ShieldAlert },
@@ -277,13 +276,6 @@ export default function Layout({ children }: LayoutProps) {
   const activePath = menuItems
     .filter((item) => isPathMatch(item.path))
     .sort((a, b) => b.path.length - a.path.length)[0]?.path;
-
-  // Auto-expand Plan section when on a plan sub-route
-  React.useEffect(() => {
-    if (location.pathname.startsWith('/plan/')) {
-      setPlanExpanded(true);
-    }
-  }, [location.pathname]);
 
   // Auto-expand Quality section when on a quality sub-route
   React.useEffect(() => {
@@ -373,157 +365,26 @@ export default function Layout({ children }: LayoutProps) {
             if (isPlan) {
               const planSubActive = location.pathname.startsWith('/plan/');
               return (
-                <div key={item.path}>
-                  {/* Plan parent button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (sidebarOpen) {
-                        setPlanExpanded((v) => !v);
-                      } else {
-                        setPlanExpanded(true);
-                      }
-                    }}
-                    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${
-                      active || planSubActive
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 translate-x-1'
-                        : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:translate-x-1'
-                    }`}
-                  >
-                    <Icon size={22} strokeWidth={active || planSubActive ? 2.5 : 2} className="shrink-0 transition-transform group-hover:scale-110 duration-200" />
-                    <span className={`flex-1 font-medium whitespace-nowrap text-left transition-all duration-200 ${sidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+                <Link
+                  key={item.path}
+                  to="/plan"
+                  className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${
+                    active || planSubActive
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 translate-x-1'
+                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:translate-x-1'
+                  }`}
+                >
+                  <Icon size={22} strokeWidth={active || planSubActive ? 2.5 : 2} className="shrink-0 transition-transform group-hover:scale-110 duration-200" />
+                  <span className={`font-medium whitespace-nowrap transition-all duration-200 ${sidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+                    {item.label}
+                  </span>
+                  {!sidebarOpen && (
+                    <div className="absolute left-full ml-4 px-3 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all duration-200 shadow-xl border border-slate-700">
                       {item.label}
-                    </span>
-                    {sidebarOpen && (
-                      planExpanded
-                        ? <ChevronDown size={14} className="shrink-0 opacity-70" />
-                        : <ChevronRight size={14} className="shrink-0 opacity-70" />
-                    )}
-                    {!sidebarOpen && (
-                      <div className="absolute left-full ml-4 px-3 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all duration-200 shadow-xl border border-slate-700">
-                        {item.label}
-                        <div className="absolute top-1/2 -left-1.5 -mt-1 border-4 border-transparent border-r-slate-900"></div>
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Plan sub-items */}
-                  {planExpanded && sidebarOpen && (
-                    <div className="mt-1 ml-4 pl-4 border-l border-slate-700 space-y-1">
-                      <Link
-                        to="/plan"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan'
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <ClipboardList size={16} className="shrink-0" />
-                        All Modules
-                      </Link>
-                      <Link
-                        to="/plan/training"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname.startsWith('/plan/training')
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <Users size={16} className="shrink-0" />
-                        Training Plan
-                        <span className="ml-auto text-xs text-slate-500 font-medium">7.2</span>
-                      </Link>
-                      <a
-                        href="/plan-pt/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group text-slate-400 hover:bg-slate-800 hover:text-white"
-                      >
-                        <span className="text-base leading-none">⚙️</span>
-                        Powertrain Equipment Plan
-                        <span className="ml-auto text-xs text-slate-500">↗</span>
-                      </a>
-                      <a
-                        href="/plan-hub/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group text-slate-400 hover:bg-slate-800 hover:text-white"
-                      >
-                        <span className="text-base leading-none">🛞</span>
-                        HUB Equipment Plan
-                        <span className="ml-auto text-xs text-slate-500">↗</span>
-                      </a>                      <Link
-                        to="/plan/calibration"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan/calibration' || (location.pathname.startsWith('/plan/calibration') && !location.pathname.includes('/inhouse'))
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <Gauge size={16} className="shrink-0" />
-                        Calibration Plan
-                        <span className="ml-auto text-xs text-slate-500 font-medium">7.1.5</span>
-                      </Link>
-                      <Link
-                        to="/plan/calibration/history"
-                        className={`flex items-center gap-3 px-3 py-2.5 ml-4 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan/calibration/history'
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <HistoryIcon size={14} className="shrink-0" />
-                        Cal. History
-                      </Link>
-                      <Link
-                        to="/plan/inhouse-calibration"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan/inhouse-calibration'
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <Gauge size={16} className="shrink-0" />
-                        In-House Calibration
-                        <span className="ml-auto text-xs text-slate-500 font-medium">7.1.5</span>
-                      </Link>
-                      <Link
-                        to="/plan/inhouse-calibration/history"
-                        className={`flex items-center gap-3 px-3 py-2.5 ml-4 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan/inhouse-calibration/history'
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <HistoryIcon size={14} className="shrink-0" />
-                        Cal. History (In-House)
-                      </Link>
-                      <Link
-                        to="/plan/maintenance"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan/maintenance' || location.pathname.startsWith('/plan/maintenance')
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <Wrench size={16} className="shrink-0" />
-                        Maintenance Plan
-                        <span className="ml-auto text-xs text-slate-500 font-medium">7.1.3</span>
-                      </Link>
-                      <Link
-                        to="/plan/maintenance/history"
-                        className={`flex items-center gap-3 px-3 py-2.5 ml-4 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/plan/maintenance/history'
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <HistoryIcon size={14} className="shrink-0" />
-                        Maint. History
-                      </Link>
+                      <div className="absolute top-1/2 -left-1.5 -mt-1 border-4 border-transparent border-r-slate-900"></div>
                     </div>
                   )}
-                </div>
+                </Link>
               );
             }
 
@@ -661,10 +522,10 @@ export default function Layout({ children }: LayoutProps) {
             </button>
 
             <div className="hidden sm:block">
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              <h1 className="text-base font-semibold text-slate-800 leading-tight">
                 {menuItems.find((i) => i.path === activePath)?.label || 'Dashboard'}
               </h1>
-              <p className="text-sm text-slate-500 font-medium">Welcome, {(user as any)?.name}</p>
+              <p className="text-[11px] text-slate-400 leading-none mt-0.5">Welcome, {(user as any)?.name}</p>
             </div>
           </div>
 

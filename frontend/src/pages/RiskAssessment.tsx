@@ -8,8 +8,8 @@ export default function RiskAssessment() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <ShieldAlert size={24} className="text-orange-500" />
+        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <ShieldAlert size={20} className="text-indigo-500" />
           Risk Assessment
         </h1>
         <p className="text-slate-500 text-sm mt-0.5">
