@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APTX Report — Elapsed Days Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#f1f5f9; color:#1e293b; }
+    .header { background:linear-gradient(135deg,#312e81,#4338ca); color:#fff; padding:24px 32px; }
+    .header h1 { font-size:22px; font-weight:700; }
+    .header p { font-size:12px; opacity:.7; margin-top:4px; }
+    .controls { display:flex; gap:12px; flex-wrap:wrap; padding:16px 32px; background:#fff; border-bottom:1px solid #e2e8f0; align-items:center; }
+    .controls label { font-size:12px; font-weight:600; color:#475569; }
+    .controls select, .controls button { font-size:13px; padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; }
+    .controls button { background:#4338ca; color:#fff; border:none; font-weight:600; }
+    .controls button:hover { background:#3730a3; }
+    .controls button.active { background:#059669; }
+    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; padding:16px 32px; }
+    .stat-card { background:#fff; border-radius:10px; padding:14px 18px; border:1px solid #e2e8f0; }
+    .stat-card .label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:#94a3b8; }
+    .stat-card .value { font-size:26px; font-weight:700; margin-top:2px; }
+    .stat-card .sub { font-size:11px; color:#94a3b8; }
+    .charts { display:grid; grid-template-columns:1fr; gap:16px; padding:16px 32px 32px; }
+    .chart-box { background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:20px; }
+    .chart-box h2 { font-size:14px; font-weight:700; color:#334155; margin-bottom:12px; }
+    .chart-container { position:relative; height:400px; }
+    .legend-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:#64748b; }
+    .legend-row span { display:inline-flex; align-items:center; gap:4px; }
+    .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    table { width:100%; border-collapse:collapse; font-size:12px; margin-top:12px; }
+    th { background:#f8fafc; text-align:left; padding:8px 10px; font-weight:600; color:#475569; border-bottom:2px solid #e2e8f0; }
+    td { padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+    tr:hover td { background:#f8fafc; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
+    .badge-hub { background:#dbeafe; color:#1e40af; }
+    .badge-pt { background:#ffedd5; color:#c2410c; }
+    .badge-inv { background:#f3e8ff; color:#7c3aed; }
+    .badge-war { background:#fef3c7; color:#b45309; }
+    .badge-open { background:#fee2e2; color:#dc2626; }
+    .badge-done { background:#dcfce7; color:#16a34a; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 APTX Report — Elapsed Days Analysis</h1>
+  <p>Data from exported_data.csv — Warranty &amp; Investigation | HUB &amp; Powertrain</p>
+</div>
+
+<div class="controls">
+  <div>
+    <label>Category</label><br>
+    <select id="filterCat">
+      <option value="All">All</option>
+      <option value="Investigation">Investigation</option>
+      <option value="Warranty">Warranty</option>
+    </select>
+  </div>
+  <div>
+    <label>Group</label><br>
+    <select id="filterGrp">
+      <option value="All">All</option>
+      <option value="HUB">HUB</option>
+      <option value="Powertrain">Powertrain</option>
+    </select>
+  </div>
+  <div>
+    <label>Status</label><br>
+    <select id="filterStatus">
+      <option value="All">All</option>
+      <option value="Completed">Completed</option>
+      <option value="Open">Open (In Progress)</option>
+    </select>
+  </div>
+  <div style="align-self:flex-end;">
+    <button onclick="applyFilters()">Apply</button>
+  </div>
+</div>
+
+<div class="stats" id="statsRow"></div>
+
+<div class="charts">
+  <div class="two-col">
+    <div class="chart-box">
+      <h2>Elapsed Days by Issue Date — Scatter Plot</h2>
+      <div class="chart-container"><canvas id="scatterChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h2>Average Elapsed Days by Month</h2>
+      <div class="chart-container"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-box">
+    <h2>Data Table</h2>
+    <div style="overflow-x:auto;">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Report No.</th>
+            <th>Assign Date</th>
+            <th>Finish Date</th>
+            <th>Elapsed (Business Days)</th>
+            <th>Category</th>
+            <th>Group</th>
+            <th>Status</th>
+            <th>Title</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Raw Data ─────────────────────────────────────────────────────────────────
+const RAW_DATA = [
+  {"report":"APTX26089","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-08","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-82X (158) AIAP (1pc.)","elapsed":""},
+  {"report":"APTX26088","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-08","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.RWF42-154 (159) AIAP (1pc.)","elapsed":""},
+  {"report":"APTX26087","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-08","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03140DDG8A HA2L Bando (1pc.)","elapsed":""},
+  {"report":"APTX26085","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-24","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801J1 PT AWI (1pc.)","elapsed":""},
+  {"report":"APTX26084","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-24","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801J1 PT AWI (1pc.)","elapsed":""},
+  {"report":"APTX26083","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-24","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2804 PT AWI (1pc.)","elapsed":""},
+  {"report":"APTX26082","assign":"2026-03-27","submit":"","finish":"","due":"2026-04-24","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801J1 PT AWI (9pcs.)","elapsed":""},
+  {"report":"APTX26080","assign":"2026-03-25","submit":"","finish":"","due":"2026-04-07","category":"Warranty","group":"HUB","title":"","elapsed":""},
+  {"report":"APTX26081","assign":"2026-03-17","submit":"2026-03-27","finish":"2026-03-30","due":"2026-03-30","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37","elapsed":"13"},
+  {"report":"APTX26076","assign":"2026-03-17","submit":"","finish":"","due":"2026-04-01","category":"Investigation","group":"Powertrain","title":"","elapsed":""},
+  {"report":"APTX26075","assign":"2026-03-17","submit":"","finish":"","due":"","category":"Investigation","group":"Powertrain","title":"","elapsed":""},
+  {"report":"APTX26073","assign":"2026-03-16","submit":"2026-03-23","finish":"2026-03-25","due":"2026-03-30","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Morocco","elapsed":"9"},
+  {"report":"APTX26059","assign":"2026-03-10","submit":"2026-03-24","finish":"2026-03-23","due":"2026-03-24","category":"Investigation","group":"Powertrain","title":"Investigation Noise Clutch 58TKZ3505 (2pcs.) from AIAT","elapsed":"13"},
+  {"report":"APTX26056","assign":"2026-03-06","submit":"","finish":"","due":"2026-03-17","category":"Investigation","group":"Powertrain","title":"Investigation report of water pump bearing due to leak problem (WP103) for bearing No.RWF42-154 from AIAP (1pc.)","elapsed":""},
+  {"report":"APTX26055","assign":"2026-03-06","submit":"","finish":"","due":"2026-03-17","category":"Investigation","group":"Powertrain","title":"Investigation report of water pump bearing due to leak problem (WP102) for bearing No.BWFS30-82 from AIAP (1pc.)","elapsed":""},
+  {"report":"APTX26054","assign":"2026-03-06","submit":"","finish":"","due":"2026-03-17","category":"Investigation","group":"Powertrain","title":"Investigation report of water pump bearing due to leak problem (WP101) for bearing No.BWFS30-82 from AIAP (1pc.)","elapsed":""},
+  {"report":"APTX26053","assign":"2026-03-05","submit":"","finish":"","due":"2026-03-31","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801 PT. AKASHI (9pcs.)","elapsed":""},
+  {"report":"APTX26045","assign":"2026-03-05","submit":"","finish":"","due":"2026-03-31","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801 PT. AKASHI (1pc.)","elapsed":""},
+  {"report":"APTX26044","assign":"2026-02-23","submit":"2026-03-12","finish":"2026-03-18","due":"2026-03-18","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.6203T1XL Gates Unitta India (9pcs.)","elapsed":"23"},
+  {"report":"APTX26039","assign":"2026-02-09","submit":"2026-02-19","finish":"2026-02-24","due":"2026-02-24","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.48TKZ3301 PT Suzuki (1pc.)","elapsed":"15"},
+  {"report":"APTX26038","assign":"2026-02-09","submit":"2026-02-19","finish":"2026-02-25","due":"2026-02-19","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2804 PT AKASHI (1pc.)","elapsed":"16"},
+  {"report":"APTX26030","assign":"2026-02-09","submit":"2026-02-19","finish":"2026-02-25","due":"2026-02-25","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801J1 PT AWI (9pcs.)","elapsed":"16"},
+  {"report":"APTX26028","assign":"2026-02-09","submit":"2026-02-19","finish":"2026-02-25","due":"2026-02-25","category":"Investigation","group":"Powertrain","title":"Investigation CRB Noise Bearing No.44TKZ2801J1 PT AWI (1pc.)","elapsed":"16"},
+  {"report":"APTX26036","assign":"2026-02-06","submit":"2026-02-19","finish":"","due":"2026-02-27","category":"Investigation","group":"Powertrain","title":"Investigation report of tensioner due to abnormal noise for bearing No.65SPF0329 from Bando (2pcs.)","elapsed":""},
+  {"report":"APTX26035","assign":"2026-02-04","submit":"2026-02-06","finish":"2026-02-11","due":"2026-02-06","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia - 43KWD07","elapsed":"7"},
+  {"report":"APTX26034","assign":"2026-02-04","submit":"2026-02-06","finish":"2026-02-11","due":"2026-02-06","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07","elapsed":"7"},
+  {"report":"APTX26033","assign":"2026-02-04","submit":"2026-02-06","finish":"2026-02-11","due":"2026-02-06","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07","elapsed":"7"},
+  {"report":"APTX26032","assign":"2026-02-04","submit":"2026-02-06","finish":"2026-02-11","due":"2026-02-06","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07","elapsed":"7"},
+  {"report":"APTX26027","assign":"2026-02-03","submit":"2026-02-04","finish":"2026-02-12","due":"2026-02-12","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No.BWFS30-82X (040) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX26023","assign":"2026-01-28","submit":"","finish":"","due":"2026-02-09","category":"Investigation","group":"Powertrain","title":"","elapsed":""},
+  {"report":"APTX26021","assign":"2026-01-28","submit":"2026-01-29","finish":"2026-02-03","due":"2026-02-03","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-89 (004) AIAP (1pc.)","elapsed":"6"},
+  {"report":"APTX26020","assign":"2026-01-28","submit":"2026-01-29","finish":"2026-02-03","due":"2026-02-03","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-82X (005) AIAP (1pc.)","elapsed":"6"},
+  {"report":"APTX26016","assign":"2026-01-19","submit":"2026-02-05","finish":"2026-02-05","due":"2026-02-05","category":"Investigation","group":"Powertrain","title":"Investigation report of ilder due to abnormal noise for bearing No.65SPF0329 from Bando (1pc.)","elapsed":"17"},
+  {"report":"APTX26015","assign":"2026-01-19","submit":"2026-02-05","finish":"2026-02-05","due":"2026-02-05","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112 from Bando (5pc.)","elapsed":"17"},
+  {"report":"APTX26013","assign":"2026-01-16","submit":"2026-01-27","finish":"2026-01-28","due":"2026-01-28","category":"Investigation","group":"Powertrain","title":"Investigation Clutch release Noise Bearing No.44TKZ2801J1 PT AWI (8pcs.)","elapsed":"12"},
+  {"report":"APTX26012","assign":"2026-01-16","submit":"2026-01-27","finish":"2026-01-28","due":"2026-01-28","category":"Investigation","group":"Powertrain","title":"Investigation Clutch release Noise Bearing No.44TKZ2804 PT AWI (2pcs.)","elapsed":"12"},
+  {"report":"APTX26009","assign":"2026-01-13","submit":"2026-01-15","finish":"2026-01-22","due":"2026-01-22","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03112 Bando (1pc.)","elapsed":"9"},
+  {"report":"APTX26008","assign":"2026-01-08","submit":"2026-01-13","finish":"2026-01-15","due":"2026-01-16","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia 43KWD07","elapsed":"7"},
+  {"report":"APTX26005","assign":"2026-01-05","submit":"2026-01-09","finish":"2026-01-16","due":"2026-01-16","category":"Investigation","group":"Powertrain","title":"Investigation FTE Leak Water Pump BWFS30-89 (428) from AIAP","elapsed":"11"},
+  {"report":"APTX26004","assign":"2026-01-05","submit":"2026-01-09","finish":"2026-01-16","due":"2026-01-16","category":"Investigation","group":"Powertrain","title":"Investigation Noise Water Pump BWFS30-82X (427) from AIAP","elapsed":"11"},
+  {"report":"APTX26003","assign":"2026-01-05","submit":"2026-01-09","finish":"2026-01-16","due":"2026-01-16","category":"Investigation","group":"Powertrain","title":"Investigation Leak Water Pump BWFS30-82X (422) from AIAP","elapsed":"11"},
+  {"report":"APTX26002","assign":"2026-01-05","submit":"2026-01-09","finish":"2026-01-16","due":"2026-01-16","category":"Investigation","group":"Powertrain","title":"Investigation Noise Tensioner Pulley 70SPF03130 (1pc.) from Bando","elapsed":"11"},
+  {"report":"APTX26001","assign":"2026-01-05","submit":"2026-01-12","finish":"2026-01-16","due":"2026-01-16","category":"Investigation","group":"Powertrain","title":"Investigation Noise Clutch 58TKZ3505 (2pcs.) from AIAT","elapsed":"11"},
+  {"report":"APTX25387","assign":"2025-12-17","submit":"2026-01-06","finish":"2026-01-07","due":"2026-01-05","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X returned from AIAP (1pc.)","elapsed":"21"},
+  {"report":"APTX25386","assign":"2025-12-17","submit":"2025-12-23","finish":"2025-12-25","due":"2025-12-26","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Malaysia 62BWKH32 (4pcs)","elapsed":"8"},
+  {"report":"APTX25385","assign":"2025-12-17","submit":"2025-12-22","finish":"2025-12-25","due":"2025-12-26","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Malaysia 62BWKH32 (4pcs)","elapsed":"8"},
+  {"report":"APTX25384","assign":"2025-12-16","submit":"2025-12-25","finish":"2025-12-26","due":"2025-12-26","category":"Investigation","group":"Powertrain","title":"Investigation report of transmission bearing due to abnormal noise for bearing No.HTFB73Z from DDMI (1pc.)","elapsed":"10"},
+  {"report":"APTX25381","assign":"2025-12-15","submit":"2025-12-25","finish":"2025-12-25","due":"2026-01-24","category":"Investigation","group":"Powertrain","title":"Investigation report MCB noise bearing No.32BD4718DDUK from Valeo (1pc.)","elapsed":"10"},
+  {"report":"APTX25376","assign":"2025-12-10","submit":"2025-12-10","finish":"2025-12-12","due":"2025-12-17","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07 (1pc) -2R","elapsed":"2"},
+  {"report":"APTX25375","assign":"2025-12-10","submit":"2025-12-10","finish":"2025-12-12","due":"2025-12-17","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07 (1pc)-1L","elapsed":"2"},
+  {"report":"APTX25374","assign":"2025-12-10","submit":"2025-12-17","finish":"2025-12-18","due":"2025-12-18","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (367) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25373","assign":"2025-12-10","submit":"2025-12-17","finish":"2025-12-18","due":"2025-12-18","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (366) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25372","assign":"2025-12-10","submit":"2025-12-17","finish":"2025-12-18","due":"2025-12-18","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (365) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25371","assign":"2025-12-10","submit":"2025-12-17","finish":"2025-12-18","due":"2025-12-18","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (359) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25370","assign":"2025-12-10","submit":"2025-12-17","finish":"2025-12-18","due":"2025-12-18","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (358) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25369","assign":"2025-12-09","submit":"2025-12-17","finish":"2025-12-22","due":"2025-12-22","category":"Investigation","group":"Powertrain","title":"Investigation report for transmission bearing due to abnormal noise from customer production process for bearing No.HTFB73Z from DDMI (1pc.)","elapsed":"13"},
+  {"report":"APTX25368","assign":"2025-12-09","submit":"2025-12-17","finish":"2025-12-22","due":"2025-12-22","category":"Investigation","group":"Powertrain","title":"Investigation report of transmission bearing due to abnormal noise at 14921 km for bearing No.HTFB73Z from DDMI (1pc.)","elapsed":"13"},
+  {"report":"APTX25353","assign":"2025-12-01","submit":"2025-12-03","finish":"2025-12-08","due":"2025-12-08","category":"Investigation","group":"Powertrain","title":"Investigation FTR-WP Leak BWFS30-89 (386) AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25348","assign":"2025-11-26","submit":"2025-12-03","finish":"2025-12-09","due":"2025-12-10","category":"Investigation","group":"Powertrain","title":"Investigation clutch release bearing No.48TKZ3301D1 abnormal noise from PT. Suzuki Indomobil Motor","elapsed":"13"},
+  {"report":"APTX25347","assign":"2025-11-26","submit":"2025-12-03","finish":"2025-12-09","due":"2025-12-10","category":"Investigation","group":"Powertrain","title":"Investigation clutch release bearing No.48TKZ3301D1 abnormal noise from PT. Suzuki Indomobil Motor","elapsed":"13"},
+  {"report":"APTX25345","assign":"2025-11-26","submit":"2025-12-09","finish":"2025-12-10","due":"2025-12-10","category":"Investigation","group":"Powertrain","title":"Investigation clutch release bearing 58TKZ3505H1RA6 abnormal noise from AIAT (1pc.)","elapsed":"14"},
+  {"report":"APTX25351","assign":"2025-11-25","submit":"2025-11-28","finish":"2025-12-02","due":"2025-12-04","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Philippines - 59BWKHS10 (1pc)","elapsed":"7"},
+  {"report":"APTX25344","assign":"2025-11-25","submit":"2025-11-27","finish":"2025-12-02","due":"2025-12-02","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-89 (305) AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25343","assign":"2025-11-25","submit":"2025-11-27","finish":"2025-12-02","due":"2025-12-02","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-89 (304) AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25340","assign":"2025-11-20","submit":"2025-11-21","finish":"2025-11-28","due":"2025-11-28","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia-43KWD07","elapsed":"8"},
+  {"report":"APTX25339","assign":"2025-11-20","submit":"2025-11-21","finish":"2025-11-28","due":"2025-11-28","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia-43KWD07","elapsed":"8"},
+  {"report":"APTX25338","assign":"2025-11-20","submit":"2025-11-21","finish":"2025-11-28","due":"2025-11-28","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07","elapsed":"8"},
+  {"report":"APTX25342","assign":"2025-11-18","submit":"2025-11-26","finish":"2025-11-28","due":"2025-11-28","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.6203T1XL Gates Unitta India (3pcs.)","elapsed":"10"},
+  {"report":"APTX25331","assign":"2025-11-18","submit":"2025-11-26","finish":"2025-11-28","due":"2025-11-28","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.6203T1XL Gates Unitta India (7pcs.)","elapsed":"10"},
+  {"report":"APTX25324","assign":"2025-11-11","submit":"2025-11-19","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-89 (271) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25323","assign":"2025-11-11","submit":"2025-11-19","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (272) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25322","assign":"2025-11-11","submit":"2025-11-25","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (270) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25321","assign":"2025-11-11","submit":"2025-11-19","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (269) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25320","assign":"2025-11-11","submit":"2025-11-19","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (268) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25319","assign":"2025-11-11","submit":"2025-11-19","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (267) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25318","assign":"2025-11-11","submit":"2025-11-19","finish":"2025-11-25","due":"2025-11-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (266) AIAP (1pc.)","elapsed":"14"},
+  {"report":"APTX25317","assign":"2025-11-10","submit":"2025-11-20","finish":"2025-11-21","due":"2025-11-21","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X-A-R1-01LB WPHSJ () AIIA (1pc.)","elapsed":"11"},
+  {"report":"APTX25316","assign":"2025-11-10","submit":"2025-11-19","finish":"2025-11-21","due":"2025-11-21","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X-A-R1-01LB WPHSJ () AIIA (1pc.)","elapsed":"11"},
+  {"report":"APTX25315","assign":"2025-11-10","submit":"2025-11-19","finish":"2025-11-21","due":"2025-11-21","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X-A-R1-01LB WPHSJ () AIIA (1pc.)","elapsed":"11"},
+  {"report":"APTX25310","assign":"2025-11-07","submit":"","finish":"","due":"2025-11-14","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 1 pcs 43KWD07A","elapsed":""},
+  {"report":"APTX25309","assign":"2025-11-07","submit":"","finish":"","due":"2025-11-14","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 1 pcs 43KWD07A","elapsed":""},
+  {"report":"APTX25307","assign":"2025-11-07","submit":"","finish":"","due":"2025-11-14","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 1 pcs","elapsed":""},
+  {"report":"APTX25305","assign":"2025-11-05","submit":"2025-11-13","finish":"2025-11-14","due":"2025-11-14","category":"Investigation","group":"Powertrain","title":"Investigation report of transmission bearing for bearing No.HTFB73Z from DDMI (1pc.)","elapsed":"9"},
+  {"report":"APTX25301","assign":"2025-10-30","submit":"2025-11-18","finish":"2025-11-21","due":"2025-11-21","category":"Investigation","group":"Powertrain","title":"","elapsed":"22"},
+  {"report":"APTX25300","assign":"2025-10-28","submit":"2025-11-07","finish":"2025-11-14","due":"2025-11-14","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112 from Bando (3pcs.)","elapsed":"17"},
+  {"report":"APTX25298","assign":"2025-10-28","submit":"2025-11-12","finish":"2025-11-13","due":"2025-11-14","category":"Warranty","group":"HUB","title":"Investigation Report of Returned Front Wheel Bearing from Indonesia 38BWD27R (1pc.)","elapsed":"16"},
+  {"report":"APTX25297","assign":"2025-10-28","submit":"2025-10-30","finish":"2025-10-31","due":"2025-11-04","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Rep. of China","elapsed":"3"},
+  {"report":"APTX25299","assign":"2025-10-27","submit":"2025-11-11","finish":"2025-11-14","due":"2025-11-14","category":"Investigation","group":"Powertrain","title":"Investigation Clutch Release Noise Bearing No.44TKZ2804 (2pcs.) from PT.Akashi","elapsed":"18"},
+  {"report":"APTX25296","assign":"2025-10-27","submit":"2025-11-13","finish":"2025-11-14","due":"2025-11-14","category":"Investigation","group":"Powertrain","title":"Investigation Clutch Release Noise Bearing No.44TKZ2801H (8pcs.) from PT.Akashi","elapsed":"18"},
+  {"report":"APTX25303","assign":"2025-10-16","submit":"2025-10-28","finish":"2025-10-29","due":"2025-10-31","category":"Investigation","group":"Powertrain","title":"Investigation clutch release bearing No.48TKZ3301D1 abnormal noise from PT. Suzuki Indomobil Motor Report FTIR No. ID202509B00337 (1 pc.)","elapsed":"13"},
+  {"report":"APTX25302","assign":"2025-10-16","submit":"2025-10-28","finish":"2025-10-29","due":"2025-10-31","category":"Investigation","group":"Powertrain","title":"Investigation clutch release bearing No.48TKZ3301D1 abnormal noise from PT. Suzuki Indomobil Motor Report FTIR No. ID202509B00336 (1 pc.)","elapsed":"13"},
+  {"report":"APTX25291","assign":"2025-10-16","submit":"2025-10-28","finish":"2025-10-29","due":"2025-10-31","category":"Investigation","group":"Powertrain","title":"Investigation clutch release bearing No.48TKZ3301D1 abnormal noise from PT. Suzuki Indomobil Motor (2 pcs.)","elapsed":"13"},
+  {"report":"APTX25289","assign":"2025-10-16","submit":"","finish":"2025-10-16","due":"2025-10-16","category":"Investigation","group":"HUB","title":"Investigate bearing after test of PERODUA MYVI - 35BWD","elapsed":"0"},
+  {"report":"APTX25294","assign":"2025-10-15","submit":"2025-10-20","finish":"2025-10-22","due":"2025-10-23","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07 (1 pc)","elapsed":"7"},
+  {"report":"APTX25293","assign":"2025-10-15","submit":"2025-10-20","finish":"2025-10-22","due":"2025-10-23","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07A (1 pc)","elapsed":"7"},
+  {"report":"APTX25290","assign":"2025-10-15","submit":"2025-10-20","finish":"2025-10-22","due":"2025-10-23","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07 (2 pcs)","elapsed":"7"},
+  {"report":"APTX25285","assign":"2025-10-14","submit":"2025-10-15","finish":"2025-10-17","due":"2025-10-17","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (3pcs.)","elapsed":"3"},
+  {"report":"APTX25283","assign":"2025-10-14","submit":"2025-10-21","finish":"2025-10-22","due":"2025-10-24","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.65SPF0329 Bando (2pcs.)","elapsed":"8"},
+  {"report":"APTX25288","assign":"2025-10-09","submit":"2025-10-21","finish":"2025-10-24","due":"2025-10-24","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak bearing No. RWF42-162 TBKK Thailand (1 pc.)","elapsed":"15"},
+  {"report":"APTX25281","assign":"2025-10-08","submit":"2025-10-21","finish":"2025-10-24","due":"2025-10-24","category":"Investigation","group":"Powertrain","title":"Investigation report of MCB due to abnormal noise for bearing No.32BD4718DDUK from Valeo (2pcs.)","elapsed":"16"},
+  {"report":"APTX25270","assign":"2025-10-08","submit":"2025-10-14","finish":"2025-10-17","due":"2025-10-17","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (246) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX25269","assign":"2025-10-08","submit":"2025-10-14","finish":"2025-10-17","due":"2025-10-17","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (225) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX25268","assign":"2025-10-08","submit":"2025-10-14","finish":"2025-10-17","due":"2025-10-17","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (224) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX25267","assign":"2025-10-06","submit":"2025-10-10","finish":"2025-10-14","due":"2025-10-15","category":"Warranty","group":"HUB","title":"Investigation Report of N18 Rear Wheel Hub Bearing from Thailand (41BWKH04 1pc.)","elapsed":"8"},
+  {"report":"APTX25286","assign":"2025-10-02","submit":"2025-10-27","finish":"2025-10-28","due":"2025-10-28","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.6203T1X Gate Unita India (4pcs.)","elapsed":"26"},
+  {"report":"APTX25257","assign":"2025-09-19","submit":"2025-09-24","finish":"2025-09-25","due":"2025-09-29","category":"Investigation","group":"HUB","title":"Investigation Report of N18 Rear Wheel Hub Bearing from Thailand (41BWKH04 1pc. ABS)","elapsed":"6"},
+  {"report":"APTX25251","assign":"2025-09-10","submit":"2025-09-16","finish":"2025-09-19","due":"2025-09-19","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No.RWF42-154 (210) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX25250","assign":"2025-09-10","submit":"2025-09-16","finish":"2025-09-19","due":"2025-09-19","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-89 (206) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX25249","assign":"2025-09-10","submit":"2025-09-16","finish":"2025-09-19","due":"2025-09-19","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-82X (193) AIAP (1pc.)","elapsed":"9"},
+  {"report":"APTX25234","assign":"2025-08-13","submit":"","finish":"","due":"2025-08-15","category":"Warranty","group":"HUB","title":"","elapsed":""},
+  {"report":"APTX25232","assign":"2025-08-07","submit":"2025-08-22","finish":"2025-08-25","due":"2025-08-25","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (6pcs.)","elapsed":"18"},
+  {"report":"APTX25229","assign":"2025-07-30","submit":"2025-08-05","finish":"2025-08-08","due":"2025-08-08","category":"Investigation","group":"HUB","title":"Investigation Report of RG01 Front Wheel Bearing from Kuwait","elapsed":"9"},
+  {"report":"APTX25225","assign":"2025-07-21","submit":"2025-07-25","finish":"2025-07-25","due":"2025-07-25","category":"Investigation","group":"HUB","title":"Investigation Report of RJ05 Front Wheel Hub Bearing from Kuwait","elapsed":"4"},
+  {"report":"APTX25222","assign":"2025-07-21","submit":"2025-07-25","finish":"2025-07-31","due":"2025-07-31","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Oman 62BWKH32S (1pc.) FTR","elapsed":"10"},
+  {"report":"APTX25219","assign":"2025-07-21","submit":"2025-07-31","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (175) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25218","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (176) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25217","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (174) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25216","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (163) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25215","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (162) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25214","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (145) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25213","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (144) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25212","assign":"2025-07-21","submit":"2025-07-30","finish":"2025-08-01","due":"2025-08-01","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (128) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25221","assign":"2025-07-20","submit":"2025-08-01","finish":"2025-08-06","due":"2025-08-06","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. RWF42-154 (143) AIAP (1pc.)","elapsed":"17"},
+  {"report":"APTX25220","assign":"2025-07-20","submit":"2025-08-01","finish":"2025-08-06","due":"2025-08-06","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. RWF42-124 (178) AIAP (1pc.)","elapsed":"17"},
+  {"report":"APTX25211","assign":"2025-07-17","submit":"2025-07-22","finish":"2025-07-25","due":"2025-07-25","category":"Investigation","group":"Powertrain","title":"Investigation Unsmooth (stuck and very stiff) Transmission bearing No.HR6307 from BYD (1pc.)","elapsed":"8"},
+  {"report":"APTX25210","assign":"2025-07-17","submit":"2025-07-17","finish":"2025-07-17","due":"2025-07-17","category":"Investigation","group":"HUB","title":"Preliminary Investigation Report of RJ05 Front Wheel Hub Bearing from Kuwait","elapsed":"0"},
+  {"report":"APTX25208","assign":"2025-07-16","submit":"2025-07-21","finish":"2025-07-25","due":"2025-07-25","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.65SPF0329 Bando (1pc.)","elapsed":"9"},
+  {"report":"APTX25207","assign":"2025-07-14","submit":"2025-07-15","finish":"2025-07-18","due":"2025-07-18","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (4pcs.)","elapsed":"4"},
+  {"report":"APTX25206","assign":"2025-07-14","submit":"2025-07-16","finish":"2025-07-17","due":"2025-07-17","category":"Warranty","group":"HUB","title":"Investigation Report of Returned Front Wheel Bearing from Indonesia - 38BWD27R (1pc)","elapsed":"3"},
+  {"report":"APTX25204","assign":"2025-07-14","submit":"2025-07-15","finish":"2025-07-17","due":"2025-07-17","category":"Warranty","group":"HUB","title":"","elapsed":"3"},
+  {"report":"APTX25202","assign":"2025-07-08","submit":"2025-07-18","finish":"2025-07-21","due":"2025-07-22","category":"Investigation","group":"Powertrain","title":"","elapsed":"13"},
+  {"report":"APTX25200","assign":"2025-07-07","submit":"2025-07-17","finish":"2025-07-18","due":"2025-07-18","category":"Investigation","group":"Powertrain","title":"","elapsed":"11"},
+  {"report":"APTX25199","assign":"2025-07-07","submit":"2025-07-16","finish":"2025-07-23","due":"2025-07-23","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03112 Bando (1pc.)","elapsed":"16"},
+  {"report":"APTX25198","assign":"2025-07-07","submit":"2025-07-14","finish":"2025-07-23","due":"2025-07-23","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03112 Bando (2pcs.)","elapsed":"16"},
+  {"report":"APTX25195","assign":"2025-07-01","submit":"2025-07-03","finish":"2025-07-14","due":"2025-07-14","category":"Investigation","group":"Powertrain","title":"Investigation MCB Noise Bearing No.32BD4718DDUK from Valeo (1pc.)","elapsed":"13"},
+  {"report":"APTX25193","assign":"2025-06-19","submit":"2025-06-26","finish":"2025-06-26","due":"2025-06-30","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia (43KWD07A 2pcs.)","elapsed":"7"},
+  {"report":"APTX25191","assign":"2025-06-18","submit":"2025-06-20","finish":"2025-06-26","due":"2025-06-30","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07A (1pc)","elapsed":"8"},
+  {"report":"APTX25178","assign":"2025-06-11","submit":"2025-06-20","finish":"2025-06-23","due":"2025-06-23","category":"Investigation","group":"Powertrain","title":"","elapsed":"12"},
+  {"report":"APTX25177","assign":"2025-06-09","submit":"2025-06-17","finish":"2025-06-25","due":"2025-06-25","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.65SPF0329 Bando (2pcs.)","elapsed":"16"},
+  {"report":"APTX25176","assign":"2025-06-09","submit":"2025-06-17","finish":"2025-06-20","due":"2025-06-20","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03112 Bando (3pcs.)","elapsed":"11"},
+  {"report":"APTX25175","assign":"2025-06-09","submit":"2025-06-13","finish":"2025-06-19","due":"2025-06-19","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03112 Bando (1pc.)","elapsed":"10"},
+  {"report":"APTX25168","assign":"2025-05-29","submit":"2025-05-29","finish":"2025-05-29","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation Result of 13154229-00 (NSK Bearing No.HR32009XJ)","elapsed":"0"},
+  {"report":"APTX25167","assign":"2025-05-29","submit":"2025-06-02","finish":"2025-06-06","due":"2025-06-06","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (119) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25166","assign":"2025-05-29","submit":"2025-06-02","finish":"2025-06-06","due":"2025-06-06","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (118) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25165","assign":"2025-05-29","submit":"2025-06-02","finish":"2025-06-06","due":"2025-06-06","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. BWFS30-82X (117) AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25171","assign":"2025-05-28","submit":"2025-06-02","finish":"2025-06-16","due":"2025-06-16","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (3pcs.)","elapsed":"19"},
+  {"report":"APTX25170","assign":"2025-05-28","submit":"2025-06-02","finish":"2025-06-17","due":"2025-06-16","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (4pcs.)","elapsed":"20"},
+  {"report":"APTX25164","assign":"2025-05-26","submit":"2025-06-06","finish":"2025-06-09","due":"2025-06-09","category":"Investigation","group":"Powertrain","title":"","elapsed":"14"},
+  {"report":"APTX25163","assign":"2025-05-23","submit":"2025-05-26","finish":"2025-05-26","due":"2025-05-26","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia 43KWD07A (1Pc)","elapsed":"3"},
+  {"report":"APTX25162","assign":"2025-05-23","submit":"2025-05-26","finish":"2025-05-26","due":"2025-05-26","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia 43KWD07A","elapsed":"3"},
+  {"report":"APTX25161","assign":"2025-05-22","submit":"2025-06-05","finish":"2025-06-06","due":"2025-06-06","category":"Investigation","group":"Powertrain","title":"","elapsed":"15"},
+  {"report":"APTX25159","assign":"2025-05-19","submit":"2025-05-28","finish":"2025-05-30","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. RWF42-154 (114) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25158","assign":"2025-05-19","submit":"2025-05-28","finish":"2025-05-30","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No. RWF42-154 (096) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25157","assign":"2025-05-19","submit":"2025-05-28","finish":"2025-05-30","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (116) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25156","assign":"2025-05-19","submit":"2025-05-28","finish":"2025-05-30","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (115) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25155","assign":"2025-05-19","submit":"2025-05-28","finish":"2025-05-30","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (113) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25154","assign":"2025-05-19","submit":"2025-05-28","finish":"2025-05-30","due":"2025-05-30","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No. BWFS30-82X (097) AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25152","assign":"2025-05-16","submit":"2025-05-20","finish":"2025-05-22","due":"2025-05-23","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from United Arab Emirates - 62BWKH32 (1pc)","elapsed":"6"},
+  {"report":"APTX25142","assign":"2025-05-08","submit":"2025-05-16","finish":"2025-05-19","due":"2025-05-20","category":"Investigation","group":"Powertrain","title":"","elapsed":"11"},
+  {"report":"APTX25145","assign":"2025-05-07","submit":"2025-05-13","finish":"2025-05-19","due":"2025-05-19","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia - 43KWD07A","elapsed":"12"},
+  {"report":"APTX25144","assign":"2025-05-07","submit":"2025-05-13","finish":"2025-05-19","due":"2025-05-26","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07","elapsed":"12"},
+  {"report":"APTX25143","assign":"2025-05-07","submit":"2025-05-13","finish":"2025-05-19","due":"2025-05-19","category":"Warranty","group":"HUB","title":"Investigation Report of IMV Front Wheel Hub Bearing from Indonesia - 43KWD07","elapsed":"12"},
+  {"report":"APTX25141","assign":"2025-05-05","submit":"2025-05-07","finish":"2025-05-08","due":"2025-05-09","category":"Investigation","group":"HUB","title":"Investigation Results of Returned Front Wheel Bearing from Thailand (47KWD04 1pc.) ABS","elapsed":"3"},
+  {"report":"APTX25135","assign":"2025-04-28","submit":"2025-05-07","finish":"2025-05-16","due":"2025-05-16","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.65SPF0329 Bando (1pc.)","elapsed":"18"},
+  {"report":"APTX25130","assign":"2025-04-21","submit":"2025-04-25","finish":"2025-04-29","due":"2025-05-02","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (4pcs.) NTF activity","elapsed":"8"},
+  {"report":"APTX25128","assign":"2025-04-08","submit":"2025-04-09","finish":"2025-04-25","due":"2025-04-25","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07A","elapsed":"17"},
+  {"report":"APTX25124","assign":"2025-04-07","submit":"2025-04-22","finish":"2025-04-25","due":"2025-04-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-82x (#83) from AIAP (1pc.)","elapsed":"18"},
+  {"report":"APTX25123","assign":"2025-04-07","submit":"2025-04-22","finish":"2025-04-25","due":"2025-04-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-82x (#82) from AIAP (1pc.)","elapsed":"18"},
+  {"report":"APTX25122","assign":"2025-04-07","submit":"2025-04-22","finish":"2025-04-25","due":"2025-04-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Leak Bearing No.BWFS30-82x (#81) from AIAP (1pc.)","elapsed":"18"},
+  {"report":"APTX25121","assign":"2025-04-07","submit":"2025-04-25","finish":"2025-04-25","due":"2025-04-25","category":"Investigation","group":"Powertrain","title":"Investigation WP Noise Bearing No.BWFS30-82x (#80) from AIAP (1pc.)","elapsed":"18"},
+  {"report":"APTX25120","assign":"2025-04-07","submit":"2025-04-28","finish":"2025-05-02","due":"2025-05-02","category":"Investigation","group":"Powertrain","title":"Investigation TP Noise Bearing No.70SPF03112 from Bando (2pcs.)","elapsed":"25"},
+  {"report":"APTX25118","assign":"2025-04-03","submit":"2025-04-10","finish":"2025-04-11","due":"2025-04-11","category":"Investigation","group":"Powertrain","title":"","elapsed":"8"},
+  {"report":"APTX25125","assign":"2025-04-02","submit":"2025-04-08","finish":"2025-04-09","due":"2025-04-11","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Philippines - 59BWKHS10","elapsed":"7"},
+  {"report":"APTX25105","assign":"2025-04-01","submit":"2025-04-09","finish":"2025-04-25","due":"2025-04-25","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112 from Bando (3pcs.)","elapsed":"24"},
+  {"report":"APTX25103","assign":"2025-04-01","submit":"2025-04-09","finish":"2025-04-24","due":"2025-04-24","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112 from Bando (1pc.)","elapsed":"23"},
+  {"report":"APTX25102","assign":"2025-03-29","submit":"2025-04-08","finish":"2025-04-10","due":"2025-04-11","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (3pcs) NTF","elapsed":"12"},
+  {"report":"APTX25101","assign":"2025-03-29","submit":"2025-04-08","finish":"2025-04-10","due":"2025-04-11","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (4pcs.) NTF activity","elapsed":"12"},
+  {"report":"APTX25100","assign":"2025-03-29","submit":"2025-04-09","finish":"2025-04-10","due":"2025-04-11","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand - 58BWKH37 (4pcs)","elapsed":"12"},
+  {"report":"APTX25093","assign":"2025-03-20","submit":"2025-03-26","finish":"2025-03-27","due":"2025-03-27","category":"Warranty","group":"HUB","title":"Investigation report of IMV front wheel hub bearing from Indonesia. 43KWD07A (1pc.)","elapsed":"7"},
+  {"report":"APTX25092","assign":"2025-03-19","submit":"2025-03-28","finish":"2025-04-02","due":"2025-04-02","category":"Investigation","group":"Powertrain","title":"","elapsed":"14"},
+  {"report":"APTX25091","assign":"2025-03-14","submit":"2025-03-18","finish":"2025-03-19","due":"2025-03-20","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Malaysia 59BWKHS10","elapsed":"5"},
+  {"report":"APTX25088","assign":"2025-03-10","submit":"2025-03-19","finish":"2025-03-25","due":"2025-03-31","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112 from Bando (2pcs.)","elapsed":"15"},
+  {"report":"APTX25087","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (60) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25086","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (59) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25085","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (36) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25084","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (35) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25083","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (34) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25082","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (33) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25081","assign":"2025-03-10","submit":"2025-03-20","finish":"2025-03-21","due":"2025-03-21","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (32) from AIAP (1pc.)","elapsed":"11"},
+  {"report":"APTX25080","assign":"2025-03-10","submit":"2025-03-17","finish":"2025-03-19","due":"2025-03-19","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112 from Bando (1pc.)","elapsed":"9"},
+  {"report":"APTX25079","assign":"2025-03-03","submit":"2025-03-13","finish":"2025-03-13","due":"2025-03-14","category":"Warranty","group":"HUB","title":"","elapsed":"10"},
+  {"report":"APTX25062","assign":"2025-02-20","submit":"2025-02-24","finish":"2025-02-28","due":"2025-02-28","category":"Investigation","group":"HUB","title":"","elapsed":"8"},
+  {"report":"APTX25061","assign":"2025-02-20","submit":"2025-03-06","finish":"2025-03-07","due":"2025-03-10","category":"Investigation","group":"Powertrain","title":"","elapsed":"15"},
+  {"report":"APTX25059","assign":"2025-02-19","submit":"2025-02-27","finish":"2025-03-07","due":"2025-03-10","category":"Investigation","group":"Powertrain","title":"","elapsed":"16"},
+  {"report":"APTX25060","assign":"2025-02-18","submit":"2025-02-25","finish":"2025-02-27","due":"2025-02-28","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Pakistan - 62BWKH32","elapsed":"9"},
+  {"report":"APTX25055","assign":"2025-02-17","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"","elapsed":"8"},
+  {"report":"APTX25054","assign":"2025-02-17","submit":"2025-02-21","finish":"2025-02-24","due":"2025-02-24","category":"Investigation","group":"Powertrain","title":"","elapsed":"7"},
+  {"report":"APTX25053","assign":"2025-02-17","submit":"2025-02-20","finish":"2025-02-21","due":"2025-02-21","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearings from Thailand (43KWD07A 3pcs.) FTR","elapsed":"4"},
+  {"report":"APTX25052","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.RWF42-124 (07) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25051","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for NR Engine (WP) bearing NoRWF42-154 (013) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25050","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (20) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25049","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (19) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25048","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (18) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25047","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (12) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25046","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (11) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25045","assign":"2025-02-13","submit":"2025-02-24","finish":"2025-02-25","due":"2025-02-25","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (10) from AIAP (1pc.)","elapsed":"12"},
+  {"report":"APTX25041","assign":"2025-02-11","submit":"2025-02-21","finish":"2025-02-21","due":"2025-02-21","category":"Investigation","group":"Powertrain","title":"","elapsed":"10"},
+  {"report":"APTX25044","assign":"2025-02-10","submit":"2025-02-13","finish":"2025-02-14","due":"2025-02-14","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Malaysia - 59BWKHS10 (1pc)","elapsed":"4"},
+  {"report":"APTX25042","assign":"2025-02-10","submit":"2025-02-13","finish":"2025-02-14","due":"2025-02-14","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Malaysia 62BWKH32S (1 Pc)","elapsed":"4"},
+  {"report":"APTX25040","assign":"2025-02-10","submit":"2025-02-20","finish":"2025-02-21","due":"2025-02-21","category":"Investigation","group":"Powertrain","title":"","elapsed":"11"},
+  {"report":"APTX25039","assign":"2025-02-07","submit":"2025-02-17","finish":"2025-02-17","due":"2025-02-18","category":"Investigation","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Philippines (59BWKHS10W 1pc. ABS) FTR","elapsed":"10"},
+  {"report":"APTX25038","assign":"2025-02-03","submit":"2025-02-07","finish":"2025-02-10","due":"2025-02-14","category":"Warranty","group":"HUB","title":"Evidence for Reject Investigate Bearing from Indonesia 43KWD07 (1 Pc)","elapsed":"7"},
+  {"report":"APTX25030","assign":"2025-02-03","submit":"2025-02-05","finish":"2025-02-11","due":"2025-02-11","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (021) from AIAP (1pc.)","elapsed":"8"},
+  {"report":"APTX25029","assign":"2025-02-03","submit":"2025-02-06","finish":"2025-02-13","due":"2025-02-17","category":"Warranty","group":"HUB","title":"Investigation Report of Returned Front Wheel Bearing from Indonesia (38BWD27R 1pc.)","elapsed":"10"},
+  {"report":"APTX25023","assign":"2025-01-22","submit":"2025-01-27","finish":"2025-01-30","due":"2025-01-30","category":"Investigation","group":"Powertrain","title":"Investigation report for Clutch Release Bearing No.44TKZ2801J1 ENSSJ from PT AKASHI WAHANA INDONESIA (1pc.)","elapsed":"8"},
+  {"report":"APTX25027","assign":"2025-01-21","submit":"2025-01-29","finish":"2025-01-30","due":"2025-01-31","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand 58BWKH37E (4 Pcs.)","elapsed":"9"},
+  {"report":"APTX25022","assign":"2025-01-20","submit":"2025-01-24","finish":"2025-01-30","due":"2025-02-11","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand - 58BWKH37","elapsed":"10"},
+  {"report":"APTX25020","assign":"2025-01-16","submit":"2025-01-17","finish":"2025-01-29","due":"2025-02-11","category":"Warranty","group":"HUB","title":"Investigation Report of Front Wheel Hub Bearing from Thailand (58BWKH37E 4pcs.)","elapsed":"13"},
+  {"report":"APTX25018","assign":"2025-01-16","submit":"2025-01-24","finish":"2025-01-29","due":"2025-01-29","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03112DDG8A LBB HT1LZ from Bando (3pcs.)","elapsed":"13"},
+  {"report":"APTX25017","assign":"2025-01-13","submit":"2025-01-17","finish":"2025-01-20","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"","elapsed":"7"},
+  {"report":"APTX25015","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-22","due":"2025-01-22","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03130 from Bando (50,952 km) 1 pc.","elapsed":"14"},
+  {"report":"APTX25014","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-17","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for WP bearing No.BWFS30-113 (334) from AIIA (1pc.)","elapsed":"9"},
+  {"report":"APTX25013","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-17","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for WP bearing No.BWFS30-113 (333) from AIIA (1pc.)","elapsed":"9"},
+  {"report":"APTX25012","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-17","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for WP bearing No.BWFS30-113 (332) from AIIA (1pc.)","elapsed":"9"},
+  {"report":"APTX25011","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-17","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for WP bearing No.BWFS30-113 (331) from AIIA (1pc.)","elapsed":"9"},
+  {"report":"APTX25010","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-17","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for WP bearing No.BWFS30-113 (330) from AIIA (1pc.)","elapsed":"9"},
+  {"report":"APTX25009","assign":"2025-01-08","submit":"2025-01-15","finish":"2025-01-17","due":"2025-01-17","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for WP bearing No.BWFS30-113 (329) from AIIA (1pc.)","elapsed":"9"},
+  {"report":"APTX25008","assign":"2025-01-08","submit":"2025-01-14","finish":"2025-01-15","due":"2025-01-15","category":"Investigation","group":"Powertrain","title":"Investigation report of Noise Problem for NR Engine (WP) bearing No.BWFS30-89 (537) from AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25007","assign":"2025-01-08","submit":"2025-01-14","finish":"2025-01-15","due":"2025-01-15","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (538) from AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25006","assign":"2025-01-08","submit":"2025-01-14","finish":"2025-01-15","due":"2025-01-15","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (536) from AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25005","assign":"2025-01-08","submit":"2025-01-14","finish":"2025-01-15","due":"2025-01-15","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (535) from AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25004","assign":"2025-01-08","submit":"2025-01-14","finish":"2025-01-15","due":"2025-01-15","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for NR Engine (WP) bearing No.BWFS30-82X (534) from AIAP (1pc.)","elapsed":"7"},
+  {"report":"APTX25003","assign":"2025-01-07","submit":"2025-01-15","finish":"2025-01-22","due":"2025-01-22","category":"Investigation","group":"Powertrain","title":"Investigation report of idler due to abnormal noise for bearing No.70SPF03130 from Bando (25,278 km) 1 pc.","elapsed":"15"},
+  {"report":"APTX25002","assign":"2025-01-06","submit":"2025-01-07","finish":"2025-01-08","due":"2025-01-08","category":"Investigation","group":"Powertrain","title":"Investigation report of Overheat Problem for GD Engine (WP) bearing No.RWF42-154 (532) from AIAP (1pc.)","elapsed":"2"},
+  {"report":"APTX25001","assign":"2025-01-06","submit":"2025-01-07","finish":"2025-01-08","due":"2025-01-08","category":"Investigation","group":"Powertrain","title":"Investigation report of Leak Problem for GD Engine (WP) bearing No.RWF42-154 (495) from AIAP (1pc.)","elapsed":"2"}
+];
+
+// ─── Business Day Calculator (exclude Sat & Sun) ─────────────────────────────
+function businessDaysBetween(startStr, endStr) {
+  const start = new Date(startStr);
+  const end   = new Date(endStr);
+  if (isNaN(start) || isNaN(end)) return null;
+  let count = 0;
+  const cur = new Date(start);
+  // Move to next day (start date is day 0)
+  cur.setDate(cur.getDate() + 1);
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+// ─── Process Data ─────────────────────────────────────────────────────────────
+const TODAY = '2026-03-30';
+
+function processData(data) {
+  return data.map(row => {
+    const endDate = row.finish || TODAY;
+    const elapsed = businessDaysBetween(row.assign, endDate);
+    const isCompleted = !!row.finish;
+    return { ...row, elapsedDays: elapsed, completed: isCompleted, endDate };
+  });
+}
+
+// ─── Filter ───────────────────────────────────────────────────────────────────
+function filterData(data) {
+  const cat    = document.getElementById('filterCat').value;
+  const grp    = document.getElementById('filterGrp').value;
+  const status = document.getElementById('filterStatus').value;
+  return data.filter(r => {
+    if (cat !== 'All' && r.category !== cat) return false;
+    if (grp !== 'All' && r.group !== grp) return false;
+    if (status === 'Completed' && !r.completed) return false;
+    if (status === 'Open' && r.completed) return false;
+    return true;
+  });
+}
+
+// ─── Charts ───────────────────────────────────────────────────────────────────
+let scatterChart = null;
+let barChart     = null;
+
+const COLORS = {
+  'HUB-Investigation':      { bg: 'rgba(99,102,241,0.75)',  border: '#6366f1' },
+  'HUB-Warranty':           { bg: 'rgba(59,130,246,0.75)',  border: '#3b82f6' },
+  'Powertrain-Investigation':{ bg: 'rgba(249,115,22,0.75)', border: '#f97316' },
+  'Powertrain-Warranty':    { bg: 'rgba(234,179,8,0.75)',   border: '#eab308' },
+};
+
+function getColor(group, category) {
+  return COLORS[group + '-' + category] || { bg: 'rgba(148,163,184,0.7)', border: '#94a3b8' };
+}
+
+function renderStats(data) {
+  const completed = data.filter(r => r.completed && r.elapsedDays !== null);
+  const open      = data.filter(r => !r.completed);
+  const avgAll    = completed.length ? (completed.reduce((s,r) => s + r.elapsedDays, 0) / completed.length) : 0;
+  const maxD      = completed.length ? Math.max(...completed.map(r => r.elapsedDays)) : 0;
+  const hubCount  = data.filter(r => r.group === 'HUB').length;
+  const ptCount   = data.filter(r => r.group === 'Powertrain').length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="label">Total Reports</div><div class="value">${data.length}</div><div class="sub">Filtered results</div></div>
+    <div class="stat-card"><div class="label">Avg Elapsed (Completed)</div><div class="value" style="color:${avgAll<=15?'#059669':'#dc2626'}">${avgAll.toFixed(1)} <span style="font-size:14px;color:#94a3b8">days</span></div><div class="sub">Business days (excl. Sat/Sun)</div></div>
+    <div class="stat-card"><div class="label">Max Elapsed</div><div class="value" style="color:#dc2626">${maxD} <span style="font-size:14px;color:#94a3b8">days</span></div><div class="sub">Longest turnaround</div></div>
+    <div class="stat-card"><div class="label">Completed / Open</div><div class="value">${completed.length} / <span style="color:#dc2626">${open.length}</span></div><div class="sub">HUB: ${hubCount} | PT: ${ptCount}</div></div>
+  `;
+}
+
+function renderScatter(data) {
+  const ctx = document.getElementById('scatterChart').getContext('2d');
+  if (scatterChart) scatterChart.destroy();
+
+  // Group datasets by group+category
+  const groups = {};
+  data.forEach(r => {
+    if (r.elapsedDays === null) return;
+    const key = r.group + '-' + r.category;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({
+      x: r.assign,
+      y: r.elapsedDays,
+      report: r.report,
+      title: r.title,
+      completed: r.completed,
+    });
+  });
+
+  const datasets = Object.entries(groups).map(([key, points]) => {
+    const c = getColor(key.split('-')[0], key.split('-')[1]);
+    return {
+      label: key,
+      data: points,
+      backgroundColor: points.map(p => p.completed ? c.bg : c.bg.replace('0.75', '0.3')),
+      borderColor: points.map(p => p.completed ? c.border : c.border + '66'),
+      borderWidth: 1.5,
+      pointRadius: 6,
+      pointHoverRadius: 9,
+      pointStyle: points.map(p => p.completed ? 'circle' : 'rectRot'),
+    };
+  });
+
+  scatterChart = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const p = ctx.raw;
+              return [
+                `${p.report} — ${p.completed ? 'Completed' : 'In Progress'}`,
+                `Assign: ${p.x}`,
+                `Elapsed: ${p.y} business days`,
+                p.title ? p.title.substring(0, 60) : '',
+              ].filter(Boolean);
+            },
+          },
+        },
+        annotation: {
+          annotations: {
+            targetLine: {
+              type: 'line',
+              yMin: 15,
+              yMax: 15,
+              borderColor: 'rgba(239, 68, 68, 0.8)',
+              borderWidth: 2,
+              borderDash: [6, 3],
+              label: {
+                display: true,
+                content: 'Target ≤ 15 days',
+                position: 'start',
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                color: '#fff',
+                font: { size: 10, weight: 'bold' },
+                padding: 4,
+              },
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          type: 'category',
+          labels: [...new Set(data.filter(r => r.elapsedDays !== null).map(r => r.assign))].sort(),
+          title: { display: true, text: 'Assign (Issue) Date', font: { size: 12, weight: 'bold' } },
+          ticks: { maxRotation: 45, font: { size: 10 } },
+          grid: { display: false },
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Elapsed Business Days', font: { size: 12, weight: 'bold' } },
+          ticks: { font: { size: 11 } },
+          grid: { color: '#e2e8f0' },
+        },
+      },
+    },
+  });
+}
+
+function renderBarChart(data) {
+  const ctx = document.getElementById('barChart').getContext('2d');
+  if (barChart) barChart.destroy();
+
+  // Aggregate completed data by month + group
+  const completed = data.filter(r => r.completed && r.elapsedDays !== null);
+  const monthMap = {};
+
+  completed.forEach(r => {
+    const monthKey = r.assign.substring(0, 7); // YYYY-MM
+    if (!monthMap[monthKey]) monthMap[monthKey] = { HUB: [], Powertrain: [] };
+    if (monthMap[monthKey][r.group]) monthMap[monthKey][r.group].push(r.elapsedDays);
+  });
+
+  const months = Object.keys(monthMap).sort();
+  const hubAvgs = months.map(m => {
+    const arr = monthMap[m].HUB;
+    return arr.length ? +(arr.reduce((a,b) => a+b, 0) / arr.length).toFixed(1) : null;
+  });
+  const ptAvgs = months.map(m => {
+    const arr = monthMap[m].Powertrain;
+    return arr.length ? +(arr.reduce((a,b) => a+b, 0) / arr.length).toFixed(1) : null;
+  });
+  const monthLabels = months.map(m => {
+    const [y, mo] = m.split('-');
+    const names = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return names[parseInt(mo)] + ' ' + y.slice(2);
+  });
+
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthLabels,
+      datasets: [
+        { label: 'HUB', data: hubAvgs, backgroundColor: 'rgba(99,102,241,0.7)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 4 },
+        { label: 'Powertrain', data: ptAvgs, backgroundColor: 'rgba(249,115,22,0.7)', borderColor: '#f97316', borderWidth: 1, borderRadius: 4 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y !== null ? `${ctx.dataset.label}: ${ctx.parsed.y} days` : 'No data' } },
+        annotation: {
+          annotations: {
+            targetLine: {
+              type: 'line',
+              yMin: 15,
+              yMax: 15,
+              borderColor: 'rgba(239, 68, 68, 0.8)',
+              borderWidth: 2,
+              borderDash: [6, 3],
+              label: {
+                display: true,
+                content: 'Target ≤ 15 days',
+                position: 'end',
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                color: '#fff',
+                font: { size: 10, weight: 'bold' },
+                padding: 4,
+              },
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Avg Elapsed Business Days', font: { size: 12, weight: 'bold' } },
+          ticks: { font: { size: 11 } },
+          grid: { color: '#e2e8f0' },
+        },
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  });
+}
+
+function renderTable(data) {
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = data.map(r => `
+    <tr>
+      <td><strong>${r.report}</strong></td>
+      <td>${r.assign}</td>
+      <td>${r.finish || '<span style="color:#94a3b8">—</span>'}</td>
+      <td style="font-weight:700; color:${r.elapsedDays === null ? '#94a3b8' : r.elapsedDays <= 15 ? '#059669' : '#dc2626'}">
+        ${r.elapsedDays !== null ? r.elapsedDays + ' days' : '—'}
+        ${!r.completed && r.elapsedDays !== null ? ' <span style="font-size:9px;color:#94a3b8">(ongoing)</span>' : ''}
+      </td>
+      <td><span class="badge ${r.category === 'Investigation' ? 'badge-inv' : 'badge-war'}">${r.category}</span></td>
+      <td><span class="badge ${r.group === 'HUB' ? 'badge-hub' : 'badge-pt'}">${r.group}</span></td>
+      <td><span class="badge ${r.completed ? 'badge-done' : 'badge-open'}">${r.completed ? 'Done' : 'Open'}</span></td>
+      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.title}">${r.title || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+const allProcessed = processData(RAW_DATA);
+
+function applyFilters() {
+  const filtered = filterData(allProcessed);
+  renderStats(filtered);
+  renderScatter(filtered);
+  renderBarChart(filtered);
+  renderTable(filtered);
+}
+
+// Initial render
+applyFilters();
+</script>
+</body>
+</html>

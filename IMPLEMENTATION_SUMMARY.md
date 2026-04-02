@@ -63,6 +63,15 @@ A comprehensive Document Change Request (DCR) workflow implementation that fully
    - Document history endpoints
    - Change request approval history
 
+8. **`backend/routes/msa.ts`** (New — MSA Module)
+   - Measurement System Analysis CRUD
+   - 4 SQLite tables created on first request (MsaStudy, MsaBias, MsaGrr, MsaStability)
+   - 6 API endpoints: list, get, create, update, delete, stats
+   - Bias study: t-test, 95% CI calculation support
+   - GR&R study: EV/AV/GRR/PV/TV/%GRR/NDC support
+   - Stability study: X̄/R chart, %Stability support
+   - JWT authentication via authRequired middleware
+
 #### Database Migrations (2 files)
 8. **`backend/migrations/20260217_0907_create_notification.sql`**
    - Notification table for workflow alerts
@@ -296,6 +305,16 @@ GET    /api/admin/change-request/:id/approvals Get approval history for CR
 GET    /api/admin/document/:id/revisions       Get document revision history
 ```
 
+### MSA (Measurement System Analysis) Endpoints (6 endpoints)
+```
+GET    /api/msa                                List all MSA studies (?type=bias|grr|stability)
+GET    /api/msa/:id                            Get single study with detail
+POST   /api/msa                                Create study (+ optional detail)
+PUT    /api/msa/:id                            Update study (+ upsert detail)
+DELETE /api/msa/:id                            Delete study and detail
+GET    /api/msa/stats/summary                  Aggregate stats (counts, results)
+```
+
 ---
 
 ## Workflow State Machine
@@ -353,6 +372,12 @@ GET    /api/admin/document/:id/revisions       Get document revision history
 ### New Tables (2)
 1. **Notification** - Workflow notifications
 2. (Plus schema additions to users table)
+
+### MSA Tables (4 — auto-created on first request)
+1. **MsaStudy** - Parent study header (study_type, equipment, part, dates, result)
+2. **MsaBias** - Bias detail (readings, mean, std_dev, t-statistic, 95% CI)
+3. **MsaGrr** - GR&R detail (appraiser data, EV, AV, GRR, PV, TV, %GRR, NDC)
+4. **MsaStability** - Stability detail (subgroup readings, X̄/R charts, %Stability)
 
 ### Enhanced Tables
 - **users**: Added owning_department for manager assignment

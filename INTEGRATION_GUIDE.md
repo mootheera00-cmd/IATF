@@ -48,7 +48,7 @@
 
 ---
 
-## 📊 Database Schema (12 Tables)
+## 📊 Database Schema (12 + 4 MSA Tables)
 
 ### Core Tables
 
@@ -99,6 +99,26 @@
 
 **Positions** (for department->manager mapping)
 - `id`, `position_name`, `department`, `assigned_user_id`
+
+### MSA Tables (auto-created on first request)
+
+**MsaStudy** (parent study header)
+- `id`, `study_type` (bias/grr/stability), `equipment_no`, `equipment_name`
+- `part_no`, `part_name`, `characteristic`, `specification`
+- `studied_date`, `area`, `status`, `result`, `created_by`
+
+**MsaBias** (bias study detail)
+- `id`, `study_id` → MsaStudy, `reference_value`, `readings` (JSON)
+- Calculated: `mean`, `std_dev`, `bias`, `t_statistic`, `ci_lower`, `ci_upper`, `result`
+
+**MsaGrr** (gauge R&R study detail)
+- `id`, `study_id` → MsaStudy, `num_appraisers`, `num_trials`, `num_parts`
+- `appraiser_data` (JSON), `ev`, `av`, `grr`, `pv`, `tv`, `percent_grr`, `ndc`, `result`
+
+**MsaStability** (stability study detail)
+- `id`, `study_id` → MsaStudy, `readings` (JSON), `num_subgroups`, `readings_per_subgroup`
+- X̄ chart: `x_bar_ucl`, `x_bar_cl`, `x_bar_lcl`; R chart: `r_ucl`, `r_cl`, `r_lcl`
+- `percent_stability`, `result`
 
 ---
 
@@ -236,6 +256,16 @@ GET /admin/document-revisions/:doc_id    [History]
 POST /admin/roles/:role_id/assign        [User assignment]
 ```
 
+### MSA — Measurement System Analysis (6)
+```
+GET    /api/msa                              [List studies (?type=bias|grr|stability)]
+GET    /api/msa/:id                          [Get study + detail]
+POST   /api/msa                              [Create study + detail]
+PUT    /api/msa/:id                          [Update study + upsert detail]
+DELETE /api/msa/:id                          [Delete study + cascade detail]
+GET    /api/msa/stats/summary                [Aggregate stats]
+```
+
 ---
 
 ## 📁 File Structure
@@ -257,6 +287,7 @@ backend/
 │   ├── changeRequests.js       # DCR endpoints (9)
 │   ├── admin.js                # Admin endpoints (8)
 │   ├── audit.js                # Audit endpoints
+│   ├── msa.ts                  # MSA endpoints (6) — Bias, GR&R, Stability
 │   └── ...                     # Other routes
 ├── services/
 │   ├── dcrService.js           # DCR workflow (568 lines)
@@ -308,7 +339,8 @@ frontend/
 │   │   ├── DCRDetail.jsx       # 5. View/Approve
 │   │   ├── UploadRevision.jsx  # 6. Upload files
 │   │   ├── Documents.jsx       # 7. Browse docs
-│   │   └── Admin.jsx           # 8. Admin panel
+│   │   ├── Admin.jsx           # 8. Admin panel
+│   │   └── MSA.tsx             # 9. MSA — Bias/GR&R/Stability
 │   ├── api.js                  # API client
 │   ├── App.jsx                 # Router
 │   ├── main.jsx                # Entry

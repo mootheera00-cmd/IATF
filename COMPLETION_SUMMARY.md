@@ -14,7 +14,7 @@
 - **Language**: Node.js/Express
 - **Database**: SQLite3 (12 tables, fully normalized)
 - **Services**: 4 complete service layers (DCR, File, Audit, Notification)
-- **API Endpoints**: 17 fully functional endpoints
+- **API Endpoints**: 17 fully functional endpoints + 6 MSA endpoints
 - **Features**:
   - ✅ 5-stage approval workflow (2-gate system)
   - ✅ File management with SHA256 integrity verification
@@ -24,6 +24,7 @@
   - ✅ Manager assignment logic (auto-routing)
   - ✅ Signed URLs for secure downloads
   - ✅ Complete error handling
+  - ✅ MSA module (Bias, GR&R, Stability) with 4 tables and 6 endpoints
 
 ### Frontend (Phase 2) ✅ 100% Complete
 - **Framework**: React 19 + Vite
@@ -69,6 +70,7 @@ services/
 routes/
   ✅ changeRequests.js (9 endpoints)
   ✅ admin.js (8 endpoints)
+  ✅ msa.ts (6 endpoints — MSA Bias/GR&R/Stability)
   ✅ (5 other routes)
 
 middleware/
@@ -150,6 +152,14 @@ Plus: Configuration files, styles
 - ✅ Department-based routing
 - ✅ Complete user management
 
+### MSA (Measurement System Analysis) — IATF 7.1.5.1
+- ✅ Bias Study (t-test, 95% CI, ACCEPTABLE/NOT ACCEPTABLE)
+- ✅ GR&R Study (EV/AV/GRR/PV/TV/%GRR/NDC, MSA 4th Ed. constants)
+- ✅ Stability Study (X̄/R control charts, %Stability)
+- ✅ Live front-end calculations with color-coded result badges
+- ✅ Full CRUD + stats endpoint (6 API endpoints)
+- ✅ 4 database tables (MsaStudy, MsaBias, MsaGrr, MsaStability)
+
 ### UI/UX Features
 - ✅ Responsive design (mobile/tablet/desktop)
 - ✅ Intuitive navigation
@@ -171,7 +181,7 @@ Plus: Configuration files, styles
 - **Services**: 5 main service files
 - **Routes**: 6 route files with 17 endpoints
 - **Middleware**: 5 middleware files
-- **Database**: 12 tables with proper relationships
+- **Database**: 12 tables with proper relationships + 4 MSA tables (16 total)
 - **Migrations**: 8 SQL migration files
 - **Error Handling**: Comprehensive try-catch blocks
 
@@ -347,6 +357,7 @@ Open `http://localhost:5173`
 - [ ] API authentication (OAuth2)
 - [ ] Mobile app (React Native)
 - [ ] PDF generation for reports
+- [x] MSA module (Bias, GR&R, Stability) — Implemented
 
 ---
 

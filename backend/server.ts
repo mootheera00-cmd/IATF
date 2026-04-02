@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const { spawn } = require('child_process');
 require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
@@ -21,6 +22,8 @@ const calibrationRoutes = require('./routes/calibration');
 const inhouseCalibrationRoutes = require('./routes/inhouseCalibration');
 const calibrationHistoryRoutes = require('./routes/calibrationHistory');
 const maintenanceRoutes = require('./routes/maintenance');
+const incidentRoutes = require('./routes/incidents');
+const msaRoutes = require('./routes/msa');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4550;
@@ -132,8 +135,118 @@ app.use('/api/calibration', calibrationRoutes);
 app.use('/api/inhouse-calibration', inhouseCalibrationRoutes);
 app.use('/api/calibration-history', calibrationHistoryRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/incidents', incidentRoutes);
+app.use('/api/msa', msaRoutes);
+
+// POST /api/open-folder — opens a local folder path in Windows Explorer (server-local only)
+const { authRequired } = require('./middleware/auth');
+
+// ─── Shared Buttons API (all logged-in users share these) ───
+app.get('/api/shared-buttons', authRequired, (req: any, res: any) => {
+  req.db.all('SELECT id, label, path FROM shared_buttons ORDER BY created_at ASC', [], (err: any, rows: any[]) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/shared-buttons', authRequired, (req: any, res: any) => {
+  const { label, path } = req.body;
+  if (!label || typeof label !== 'string' || !label.trim()) {
+    return res.status(400).json({ error: 'label is required' });
+  }
+  const trimLabel = label.trim();
+  const trimPath = (path && typeof path === 'string') ? path.trim() : '';
+  req.db.run(
+    'INSERT INTO shared_buttons (label, path, created_by) VALUES (?, ?, ?)',
+    [trimLabel, trimPath, req.user.id],
+    function (this: any, err: any) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, label: trimLabel, path: trimPath });
+    }
+  );
+});
+
+app.delete('/api/shared-buttons/:id', authRequired, (req: any, res: any) => {
+  const btnId = Number(req.params.id);
+  if (!btnId) return res.status(400).json({ error: 'Invalid button id' });
+  req.db.run('DELETE FROM shared_buttons WHERE id = ?', [btnId], function (this: any, err: any) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// ─── KPI CSV Data API (shared across all users) ───
+app.get('/api/kpi-csv', authRequired, (req: any, res: any) => {
+  req.db.get('SELECT file_name, csv_json FROM kpi_csv_data WHERE id = 1', [], (err: any, row: any) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.json({ fileName: '', data: null });
+    try {
+      res.json({ fileName: row.file_name, data: JSON.parse(row.csv_json) });
+    } catch {
+      res.json({ fileName: row.file_name, data: null });
+    }
+  });
+});
+
+app.post('/api/kpi-csv', authRequired, (req: any, res: any) => {
+  const { fileName, data } = req.body;
+  if (!data || !Array.isArray(data)) {
+    return res.status(400).json({ error: 'data (array) is required' });
+  }
+  const jsonStr = JSON.stringify(data);
+  const name = (fileName && typeof fileName === 'string') ? fileName.trim() : '';
+  req.db.run(
+    `INSERT INTO kpi_csv_data (id, file_name, csv_json, uploaded_by, uploaded_at)
+     VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(id) DO UPDATE SET file_name = excluded.file_name, csv_json = excluded.csv_json, uploaded_by = excluded.uploaded_by, uploaded_at = CURRENT_TIMESTAMP`,
+    [name, jsonStr, req.user.id],
+    function (this: any, err: any) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+app.delete('/api/kpi-csv', authRequired, (req: any, res: any) => {
+  req.db.run('DELETE FROM kpi_csv_data WHERE id = 1', [], function (this: any, err: any) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+app.post('/api/open-folder', authRequired, (req: any, res: any) => {
+  const { folderPath } = req.body;
+  if (!folderPath || typeof folderPath !== 'string') {
+    return res.status(400).json({ error: 'folderPath is required' });
+  }
+  // Accept both backslash and forward-slash Windows paths
+  const normalized = folderPath.replace(/\//g, '\\');
+  if (!/^([A-Za-z]:\\|\\\\)/.test(normalized)) {
+    return res.status(400).json({ error: 'Invalid folder path format. Use a Windows absolute path, e.g. G:\\FolderName' });
+  }
+  try {
+    // Use cmd /c start so Explorer opens in the foreground (not behind the browser)
+    const child = spawn('cmd.exe', ['/c', 'start', '', normalized], { detached: true, stdio: 'ignore' });
+    child.unref();
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to open folder' });
+  }
+});
 
 app.use('/uploads/doc-pdf', express.static(path.join(__dirname, 'uploads', 'doc-pdf')));
+
+// ─── Download open-folder setup files (for remote PCs) ───
+app.get('/api/download-setup/openfolder.vbs', authRequired, (_req: any, res: any) => {
+  const file = path.resolve(__dirname, '..', 'tools', 'openfolder.vbs');
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Setup file not found' });
+  res.download(file);
+});
+app.get('/api/download-setup/setup-openfolder.ps1', authRequired, (_req: any, res: any) => {
+  const file = path.resolve(__dirname, '..', 'tools', 'setup-openfolder.ps1');
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Setup file not found' });
+  res.download(file);
+});
 
 runTempCleanup();
 setInterval(runTempCleanup, 24 * 60 * 60 * 1000);

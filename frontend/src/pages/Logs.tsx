@@ -44,6 +44,13 @@ const ACTION_LABELS: Record<string, string> = {
   FILE_ACCESS_SUCCESS: '👁️ File Viewed',
   FILE_ACCESS_DENIED: '🚫 File Access Denied',
   ASSIGN_ROLE: '🏷️ Role Assigned',
+  CREATE_INCIDENT: '🆕 ASR Created',
+  EDIT_INCIDENT: '✏️ ASR Edited',
+  APPROVE_INCIDENT: '✅ ASR Approved',
+  REJECT_INCIDENT: '❌ ASR Rejected',
+  DELETE_INCIDENT: '🗑️ ASR Deleted',
+  UPLOAD_INCIDENT_ATTACHMENT: '📎 ASR Attachment Uploaded',
+  DELETE_INCIDENT_ATTACHMENT: '🗑️ ASR Attachment Deleted',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -61,6 +68,13 @@ const ACTION_COLORS: Record<string, string> = {
   CR_CLOSED: 'bg-slate-100 text-slate-600',
   CR_DELETE_APPROVED: 'bg-red-100 text-red-800',
   SYSTEM_WIPE: 'bg-red-200 text-red-900',
+  CREATE_INCIDENT: 'bg-purple-50 text-purple-700',
+  EDIT_INCIDENT: 'bg-amber-50 text-amber-700',
+  APPROVE_INCIDENT: 'bg-emerald-50 text-emerald-700',
+  REJECT_INCIDENT: 'bg-red-50 text-red-700',
+  DELETE_INCIDENT: 'bg-red-100 text-red-800',
+  UPLOAD_INCIDENT_ATTACHMENT: 'bg-blue-50 text-blue-700',
+  DELETE_INCIDENT_ATTACHMENT: 'bg-orange-50 text-orange-700',
 };
 
 export default function Logs() {
@@ -98,6 +112,9 @@ export default function Logs() {
     if (log.entity_type === 'ChangeRequest') {
       return `TICKET ${getChangeRequestActionLabel(log)}`;
     }
+    if (log.entity_type === 'AbnormalSituation') {
+      return 'Abnormal Situation';
+    }
     return String(log.entity_type || '-');
   };
 
@@ -105,6 +122,11 @@ export default function Logs() {
     if (log.entity_type === 'ChangeRequest' && log.entity_id) {
       const actionLabel = getChangeRequestActionLabel(log);
       return `TICKET #${log.entity_id} ${actionLabel}`;
+    }
+    if (log.entity_type === 'AbnormalSituation') {
+      const meta = log.metadata;
+      const rn = typeof meta === 'object' && meta?.record_no ? meta.record_no : '';
+      return `ASR${log.entity_id ? ` #${log.entity_id}` : ''}${rn ? ` (${rn})` : ''}`;
     }
     return `${log.entity_type || '-'}${log.entity_id ? ` #${log.entity_id}` : ''}`;
   };

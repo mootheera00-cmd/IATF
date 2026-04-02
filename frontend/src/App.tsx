@@ -31,6 +31,8 @@ import MSA from './pages/MSA';
 import RiskAssessment from './pages/RiskAssessment';
 import PowertrainPlan from './pages/PowerTransmissionPlan';
 import DocumentRepository from './pages/DocumentRepository';
+import OtherPage from './pages/OtherPage';
+import AbnormalSituations from './pages/AbnormalSituations';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -380,6 +382,28 @@ function AppRoutes() {
       <Route
         path="/safety/risk-assessment"
         element={<Navigate to="/safety" replace />}
+      />
+
+      <Route
+        path="/other"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <OtherPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/other/abnormal-situations"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <AbnormalSituations />
+            </Layout>
+          </ProtectedRoute>
+        }
       />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

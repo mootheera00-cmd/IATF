@@ -61,6 +61,28 @@ module.exports = function initDb(db: any) {
       )
     `);
 
+    db.run(`
+      CREATE TABLE IF NOT EXISTS shared_buttons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        label TEXT NOT NULL,
+        path TEXT DEFAULT '',
+        created_by INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS kpi_csv_data (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        file_name TEXT NOT NULL DEFAULT '',
+        csv_json TEXT NOT NULL DEFAULT '[]',
+        uploaded_by INTEGER,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (uploaded_by) REFERENCES users(id)
+      )
+    `);
+
     const roles = ['ENGINEER', 'MANAGER', 'QMR', 'ADMIN'];
     roles.forEach((r) => {
       db.run(`INSERT OR IGNORE INTO roles (name) VALUES (?)`, [r]);
