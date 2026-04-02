@@ -713,6 +713,8 @@ CREATE DATABASE IF NOT EXISTS nskiatf_doccontrol
   COLLATE utf8mb4_unicode_ci;
 
 -- 2. Create application user (least privilege)
+-- ⚠️  Replace STRONG_RANDOM_PASSWORD with a real random value before running.
+--     Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 CREATE USER 'iatf_app'@'127.0.0.1' IDENTIFIED BY 'STRONG_RANDOM_PASSWORD';
 GRANT SELECT, INSERT, UPDATE, DELETE ON nskiatf_doccontrol.* TO 'iatf_app'@'127.0.0.1';
 FLUSH PRIVILEGES;
