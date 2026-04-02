@@ -331,6 +331,119 @@ Draft → Submitted → {Rejected | Pre-Approved}
 
 ---
 
+## Table: MsaStudy
+
+**Purpose:** Parent header for all MSA (Measurement System Analysis) studies
+
+| Column | Type | Constraint | Description |
+|--------|------|-----------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Study record ID |
+| study_type | TEXT | NOT NULL CHECK(IN 'bias','grr','stability') | Type of MSA study |
+| equipment_no | TEXT | NOT NULL | Equipment / gage number |
+| equipment_name | TEXT | | Equipment description |
+| equipment_resolution | TEXT | | Measurement resolution |
+| part_no | TEXT | | Part number measured |
+| part_name | TEXT | | Part description |
+| characteristic | TEXT | | Measured characteristic |
+| specification | TEXT | | Specification / tolerance |
+| studied_date | TEXT | | Date study was performed |
+| area | TEXT | | Department / area |
+| status | TEXT | DEFAULT 'Active' | Record status |
+| result | TEXT | | Overall result (ACCEPTABLE / NOT ACCEPTABLE) |
+| created_by | INTEGER | FK → users(id) | User who created the study |
+| created_at | TEXT | DEFAULT datetime('now') | Creation timestamp |
+| updated_at | TEXT | DEFAULT datetime('now') | Last update timestamp |
+
+---
+
+## Table: MsaBias
+
+**Purpose:** Detail data for Bias studies (t-test, 95% CI)
+
+| Column | Type | Constraint | Description |
+|--------|------|-----------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Record ID |
+| study_id | INTEGER | NOT NULL FK → MsaStudy(id) ON DELETE CASCADE | Parent study |
+| appraiser_name | TEXT | | Appraiser who performed the study |
+| appraiser_dept | TEXT | | Appraiser department |
+| reference_value | REAL | | Known reference / master value |
+| reference_unit | TEXT | DEFAULT 'mm' | Unit of measurement |
+| alpha | REAL | DEFAULT 0.05 | Significance level |
+| sample_count | INTEGER | DEFAULT 15 | Number of readings |
+| readings | TEXT | | JSON array of individual readings |
+| mean | REAL | | Calculated mean of readings |
+| std_dev | REAL | | Standard deviation |
+| range_val | REAL | | Max − Min |
+| bias | REAL | | Mean − Reference Value |
+| t_statistic | REAL | | |bias| / (σ / √n) |
+| degrees_of_freedom | REAL | | n − 1 |
+| significant_t | REAL | | t-critical at α/2 |
+| ci_lower | REAL | | Lower bound of 95% CI |
+| ci_upper | REAL | | Upper bound of 95% CI |
+| result | TEXT | | ACCEPTABLE or NOT ACCEPTABLE |
+
+---
+
+## Table: MsaGrr
+
+**Purpose:** Detail data for Gauge R&R studies (EV, AV, GRR, PV, TV, %GRR, NDC)
+
+| Column | Type | Constraint | Description |
+|--------|------|-----------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Record ID |
+| study_id | INTEGER | NOT NULL FK → MsaStudy(id) ON DELETE CASCADE | Parent study |
+| num_appraisers | INTEGER | DEFAULT 3 | Number of appraisers |
+| num_trials | INTEGER | DEFAULT 3 | Number of trials per appraiser |
+| num_parts | INTEGER | DEFAULT 6 | Number of parts measured |
+| appraiser_data | TEXT | | JSON: per-appraiser trial×part readings |
+| part_averages | TEXT | | JSON: overall part averages |
+| r_bar | REAL | | Average range across appraisers |
+| x_diff | REAL | | Max appraiser avg − Min appraiser avg |
+| ucl_r | REAL | | Upper control limit for ranges (D4 × R̄) |
+| ev | REAL | | Equipment Variation (R̄ × K1) |
+| av | REAL | | Appraiser Variation |
+| grr | REAL | | Gauge R&R = √(EV² + AV²) |
+| pv | REAL | | Part Variation (Rp × K3) |
+| tv | REAL | | Total Variation = √(GRR² + PV²) |
+| percent_ev | REAL | | %EV = (EV / TV) × 100 |
+| percent_av | REAL | | %AV = (AV / TV) × 100 |
+| percent_grr | REAL | | %GRR = (GRR / TV) × 100 |
+| percent_pv | REAL | | %PV = (PV / TV) × 100 |
+| ndc | INTEGER | | Number of Distinct Categories |
+| result | TEXT | | ACCEPTABLE (≤10%), MARGINAL (10-30%), NOT ACCEPTABLE (>30%) |
+
+---
+
+## Table: MsaStability
+
+**Purpose:** Detail data for Stability studies (X̄/R control charts, %Stability)
+
+| Column | Type | Constraint | Description |
+|--------|------|-----------|-------------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | Record ID |
+| study_id | INTEGER | NOT NULL FK → MsaStudy(id) ON DELETE CASCADE | Parent study |
+| inspector_name | TEXT | | Inspector who performed the study |
+| tolerance | REAL | | Process tolerance |
+| tolerance_unit | TEXT | DEFAULT 'g' | Unit of measurement |
+| reference_value | REAL | | Reference / nominal value |
+| num_subgroups | INTEGER | DEFAULT 20 | Number of subgroups |
+| readings_per_subgroup | INTEGER | DEFAULT 3 | Readings per subgroup |
+| readings | TEXT | | JSON: 2D array [subgroup][reading] |
+| x_bar_values | TEXT | | JSON: subgroup means |
+| range_values | TEXT | | JSON: subgroup ranges |
+| x_bar_ucl | REAL | | X̄ chart upper control limit |
+| x_bar_cl | REAL | | X̄ chart center line |
+| x_bar_lcl | REAL | | X̄ chart lower control limit |
+| r_ucl | REAL | | R chart upper control limit |
+| r_cl | REAL | | R chart center line |
+| r_lcl | REAL | | R chart lower control limit (0 for n≤6) |
+| sigma | REAL | | Estimated sigma (R̄ / d2) |
+| six_sigma | REAL | | 6σ spread |
+| percent_stability | REAL | | %Stability = ((X̄_max − X̄_min) / 6σ) × 100 |
+| result | TEXT | | ACCEPTABLE or NOT ACCEPTABLE |
+
+---
+
 ## Relationships Diagram
 
 ```
@@ -369,6 +482,14 @@ ChangeRequest (1)────┬─────(n) ApprovalRecord (cr_id)
                      ├─────(n) AuditEvent (entity_id where entity_type='ChangeRequest')
                      │
                      └─────(n) SignedUrlToken (cr_id)
+
+MsaStudy (1)─────────┬─────(0..1) MsaBias (study_id)
+                      │
+                      ├─────(0..1) MsaGrr (study_id)
+                      │
+                      └─────(0..1) MsaStability (study_id)
+
+users (1)─────────────(n) MsaStudy (created_by)
 ```
 
 ---

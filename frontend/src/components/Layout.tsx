@@ -6,7 +6,7 @@ import { notificationAPI } from '../api';
 import {
   Menu, X, Home, FileText, FolderOpen, ClipboardCheck, Settings,
   Bell, LogOut, ChevronRight, ChevronDown, LayoutGrid, User, Search, Database, Network, ClipboardList,
-  Users, Gauge, History as HistoryIcon, Wrench, FlaskConical, ShieldAlert, BarChart3,
+  Users, Gauge, History as HistoryIcon, Wrench, FlaskConical, ShieldAlert, BarChart3, Layers,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -18,7 +18,7 @@ interface NotificationItem {
   type?: string;
   message?: string;
   cr_id?: number | string;
-  metadata?: { cr_id?: number | string; year?: number | string };
+  metadata?: { cr_id?: number | string; year?: number | string; situation_id?: number | string; record_no?: string };
   is_read?: number | string;
 }
 
@@ -122,13 +122,18 @@ export default function Layout({ children }: LayoutProps) {
 
   const unreadCount = notifications.filter((item) => Number(item.is_read || 0) === 0).length;
   const pendingActions = notifications
-    .filter((item) => item.cr_id || item.metadata?.cr_id || String(item.type || '').toUpperCase().startsWith('TRAINING_PLAN_'))
+    .filter((item) => item.cr_id || item.metadata?.cr_id || String(item.type || '').toUpperCase().startsWith('TRAINING_PLAN_') || String(item.type || '').toUpperCase().startsWith('ASR_'))
     .slice(0, 5);
 
   const openChangeRequestDetail = (item: NotificationItem) => {
     setNotificationOpen(false);
-    if (String(item.type || '').toUpperCase().startsWith('TRAINING_PLAN_')) {
+    const typeUpper = String(item.type || '').toUpperCase();
+    if (typeUpper.startsWith('TRAINING_PLAN_')) {
       navigate('/plan/training');
+      return;
+    }
+    if (typeUpper.startsWith('ASR_')) {
+      navigate('/other/abnormal-situations');
       return;
     }
     const crId = item.cr_id || item.metadata?.cr_id;
@@ -190,6 +195,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/quality/msa', label: 'MSA', keywords: 'msa measurement system analysis gauge r&r bias linearity stability 7.1.5.1' },
     { path: '/safety', label: 'Risk Assessment', keywords: 'safety risk assessment hazard iso 45001 workplace hazard identification severity likelihood control measures' },
     { path: '/report', label: 'Report', keywords: 'report work log management summary analytics' },
+    { path: '/other', label: 'Other', keywords: 'other abnormal situations incident record machine equipment' },
     { path: '/logs', label: 'System Logs', keywords: 'audit trail activity history view logs' },
     ...(((user as any)?.role === 'ADMIN' || (user as any)?.role === 'QMR')
       ? [{ path: '/admin', label: 'Administration', keywords: 'admin users roles audit compliance migration settings' }]
@@ -254,6 +260,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/quality', label: 'Quality', icon: FlaskConical },
     { path: '/safety', label: 'Risk Assessment', icon: ShieldAlert },
     { path: '/report', label: 'Report', icon: FileText },
+    { path: '/other', label: 'Other', icon: Layers },
     { path: '/logs', label: 'System Logs', icon: FileText },
   ];
 
@@ -388,7 +395,7 @@ export default function Layout({ children }: LayoutProps) {
               );
             }
 
-            // ── Quality expandable section ──────────────────────────────────
+            // ── Quality section ──────────────────────────────────
             if (item.path === '/quality') {
               const qualitySubActive = location.pathname.startsWith('/quality/');
               return (
@@ -396,8 +403,7 @@ export default function Layout({ children }: LayoutProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      if (sidebarOpen) setQualityExpanded((v) => !v);
-                      else setQualityExpanded(true);
+                      navigate('/quality');
                     }}
                     className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${
                       active || qualitySubActive
@@ -409,7 +415,6 @@ export default function Layout({ children }: LayoutProps) {
                     <span className={`flex-1 font-medium whitespace-nowrap text-left transition-all duration-200 ${sidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
                       {item.label}
                     </span>
-                    {sidebarOpen && (qualityExpanded ? <ChevronDown size={14} className="shrink-0 opacity-70" /> : <ChevronRight size={14} className="shrink-0 opacity-70" />)}
                     {!sidebarOpen && (
                       <div className="absolute left-full ml-4 px-3 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all duration-200 shadow-xl border border-slate-700">
                         {item.label}
@@ -417,33 +422,6 @@ export default function Layout({ children }: LayoutProps) {
                       </div>
                     )}
                   </button>
-                  {qualityExpanded && sidebarOpen && (
-                    <div className="mt-1 ml-4 pl-4 border-l border-slate-700 space-y-1">
-                      <Link
-                        to="/quality"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname === '/quality'
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <FlaskConical size={16} className="shrink-0" />
-                        All Modules
-                      </Link>
-                      <Link
-                        to="/quality/msa"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                          location.pathname.startsWith('/quality/msa')
-                            ? 'bg-slate-700 text-white font-semibold'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <span className="text-base leading-none">📏</span>
-                        MSA
-                        <span className="ml-auto text-xs text-slate-500 font-medium">7.1.5.1</span>
-                      </Link>
-                    </div>
-                  )}
                 </div>
               );
             }
@@ -609,10 +587,14 @@ export default function Layout({ children }: LayoutProps) {
                       ) : (
                         notifications.map((item) => {
                           const crId = item.cr_id || item.metadata?.cr_id;
-                          const isTrainingPlanNotif = String(item.type || '').toUpperCase().startsWith('TRAINING_PLAN_');
+                          const typeUpper = String(item.type || '').toUpperCase();
+                          const isTrainingPlanNotif = typeUpper.startsWith('TRAINING_PLAN_');
+                          const isASRNotif = typeUpper.startsWith('ASR_');
                           const refLabel = isTrainingPlanNotif
                             ? `Training Plan ${item.metadata?.year || ''}`
-                            : `Request ID: ${crId || '-'}`;
+                            : isASRNotif
+                              ? `ASR: ${item.metadata?.record_no || '-'}`
+                              : `Request ID: ${crId || '-'}`;
                           return (
                             <div
                               key={item.id}
@@ -652,10 +634,14 @@ export default function Layout({ children }: LayoutProps) {
                         <div className="space-y-2">
                           {pendingActions.map((item) => {
                             const crId = item.cr_id || item.metadata?.cr_id;
-                            const isTPlan = String(item.type || '').toUpperCase().startsWith('TRAINING_PLAN_');
+                            const typeUpper = String(item.type || '').toUpperCase();
+                            const isTPlan = typeUpper.startsWith('TRAINING_PLAN_');
+                            const isASR = typeUpper.startsWith('ASR_');
                             const btnTitle = isTPlan
                               ? `Training Plan ${item.metadata?.year || ''}`
-                              : `Change Request #${crId || '-'}`;
+                              : isASR
+                                ? `Abnormal Situation: ${item.metadata?.record_no || '-'}`
+                                : `Change Request #${crId || '-'}`;
                             return (
                               <button
                                 key={`pending-${item.id}`}

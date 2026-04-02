@@ -521,6 +521,68 @@ curl -X POST http://localhost:4550/api/change-requests \
 
 ---
 
+## MSA (Measurement System Analysis) Testing
+
+### MSA API Endpoints
+- [ ] `GET /api/msa` returns empty list initially
+- [ ] `POST /api/msa` creates a Bias study with detail
+- [ ] `POST /api/msa` creates a GR&R study with detail
+- [ ] `POST /api/msa` creates a Stability study with detail
+- [ ] `GET /api/msa?type=bias` filters by study type
+- [ ] `GET /api/msa/:id` returns study with correct detail
+- [ ] `PUT /api/msa/:id` updates study header and upserts detail
+- [ ] `DELETE /api/msa/:id` removes study and cascades to detail
+- [ ] `GET /api/msa/stats/summary` returns correct counts and result breakdown
+- [ ] 400 returned when study_type or equipment_no missing
+- [ ] 400 returned when study_type is invalid
+- [ ] 404 returned for non-existent study ID
+- [ ] Requires JWT authentication (401 without token)
+
+### Bias Study
+- [ ] Can enter 15 readings against a reference value
+- [ ] Mean, Std Dev, Range calculated correctly
+- [ ] Bias = Mean − Reference Value
+- [ ] t-Statistic = |Bias| / (σ / √n)
+- [ ] 95% CI Lower/Upper calculated correctly
+- [ ] Result = ACCEPTABLE when |t| < t-critical
+- [ ] Result = NOT ACCEPTABLE when |t| ≥ t-critical
+- [ ] Badge color green for ACCEPTABLE, red for NOT ACCEPTABLE
+
+### GR&R Study
+- [ ] Can configure appraisers (default 3), trials (3), parts (6)
+- [ ] Readings grid renders correctly for all appraisers × trials × parts
+- [ ] R̄ (average range) calculated correctly
+- [ ] EV = K1 × R̄ computed correctly per MSA 4th edition constants
+- [ ] AV = √((X̄diff × K2)² − (EV² / (n × r))) computed correctly
+- [ ] GRR = √(EV² + AV²) computed correctly
+- [ ] PV = Rp × K3 computed correctly
+- [ ] TV = √(GRR² + PV²) computed correctly
+- [ ] %GRR = (GRR / TV) × 100 displayed correctly
+- [ ] NDC = floor(1.41 × PV / GRR) displayed correctly
+- [ ] ACCEPTABLE (≤10%), MARGINAL (10–30%), NOT ACCEPTABLE (>30%) badges correct
+
+### Stability Study
+- [ ] Can configure subgroups (default 20) and readings per subgroup (default 3)
+- [ ] Readings grid renders correctly
+- [ ] X̄ values and Range values calculated per subgroup
+- [ ] X̄ chart CL = grand mean, UCL/LCL = CL ± A2 × R̄
+- [ ] R chart CL = R̄, UCL = D4 × R̄, LCL = 0 (for n ≤ 6)
+- [ ] σ = R̄ / d2 computed correctly
+- [ ] %Stability = ((X̄max − X̄min) / 6σ) × 100 computed correctly
+- [ ] ACCEPTABLE when %Stability ≤ 10%, otherwise NOT ACCEPTABLE
+
+### MSA Frontend
+- [ ] Study list table loads and displays all studies
+- [ ] Search by equipment number/name/part works
+- [ ] Filter dropdown for study type works
+- [ ] New Study button opens form
+- [ ] Tab switching between Bias / GR&R / Stability works
+- [ ] Detail modal opens with read-only data for each study type
+- [ ] Delete confirmation works (privileged roles only)
+- [ ] Form validation prevents empty required fields
+
+---
+
 ## Final Sign-Off
 
 ### Functional Requirements

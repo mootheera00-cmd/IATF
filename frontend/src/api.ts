@@ -316,4 +316,48 @@ export const maintenanceAPI = {
     api.get(`/maintenance/calibration-result/file/${id}`, { responseType: 'blob' }),
 };
 
+export const incidentAPI = {
+  list:             (params?: Record<string, string>) =>
+    api.get('/incidents', { params }),
+  get:              (id: number | string) =>
+    api.get(`/incidents/${id}`),
+  create:           (data: Record<string, unknown>) =>
+    api.post('/incidents', data),
+  update:           (id: number | string, data: Record<string, unknown>) =>
+    api.put(`/incidents/${id}`, data),
+  approve:          (id: number | string) =>
+    api.post(`/incidents/${id}/approve`),
+  reject:           (id: number | string, reason: string) =>
+    api.post(`/incidents/${id}/reject`, { reason }),
+  getMachineOptions: () =>
+    api.get('/incidents/machine-options'),
+  addMachineOption:  (name: string) =>
+    api.post('/incidents/machine-options', { name }),
+  getManagers:       () =>
+    api.get('/incidents/managers'),
+  uploadAttachments: (id: number | string, formData: FormData) =>
+    api.post(`/incidents/${id}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+  getAttachments:    (id: number | string) =>
+    api.get(`/incidents/${id}/attachments`),
+  downloadAttachment: (id: number | string, attachmentId: number | string) =>
+    api.get(`/incidents/${id}/attachments/${attachmentId}/download`, { responseType: 'blob' }),
+  deleteAttachment:  (id: number | string, attachmentId: number | string) =>
+    api.delete(`/incidents/${id}/attachments/${attachmentId}`),
+  deleteRecord:      (id: number | string) =>
+    api.delete(`/incidents/${id}`),
+  getEditHistory:    (id: number | string) =>
+    api.get(`/incidents/${id}/edit-history`),
+};
+
+export const msaAPI = {
+  list:      (type?: string) => api.get('/msa', { params: type ? { type } : {} }),
+  get:       (id: number | string) => api.get(`/msa/${id}`),
+  create:    (data: Record<string, unknown>) => api.post('/msa', data),
+  update:    (id: number | string, data: Record<string, unknown>) => api.put(`/msa/${id}`, data),
+  remove:    (id: number | string) => api.delete(`/msa/${id}`),
+  stats:     () => api.get('/msa/stats/summary'),
+};
+
 export default api;

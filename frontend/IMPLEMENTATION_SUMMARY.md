@@ -136,6 +136,17 @@ The IATF 16949 Document Change Request system frontend has been fully implemente
    - Download report link
    - Last generated date display
 
+9. **MSA.tsx** (100%) — Measurement System Analysis
+   - Three study types: Bias, GR&R, Stability
+   - Study list table with search, type filter, color-coded result badges
+   - **Bias Study Form**: 15-reading grid, live t-test calculation, 95% CI, ACCEPTABLE/NOT ACCEPTABLE
+   - **GR&R Study Form**: Appraiser × Trial × Part grid, live EV/AV/GRR/PV/TV/%GRR/NDC calculation (MSA 4th Ed. constants)
+   - **Stability Study Form**: Subgroup × Reading grid, live X̄/R chart calculation (UCL/CL/LCL), %Stability
+   - Detail view modal (read-only)
+   - CRUD operations via msaAPI
+   - Delete with confirmation (privileged roles only)
+   - IATF 16949 Clause 7.1.5.1 compliant
+
 ---
 
 ## 📦 Installed Dependencies
@@ -280,7 +291,8 @@ frontend/
 │   │   ├── DCRDetail.jsx             # CR details & approval
 │   │   ├── UploadRevision.jsx        # File upload
 │   │   ├── Documents.jsx             # Document browser
-│   │   └── Admin.jsx                 # Admin dashboard
+│   │   ├── Admin.jsx                 # Admin dashboard
+│   │   └── MSA.tsx                   # MSA — Bias/GR&R/Stability
 │   │
 │   ├── api.js                        # API client
 │   ├── App.jsx                       # Router setup
