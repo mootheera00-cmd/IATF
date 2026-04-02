@@ -351,6 +351,32 @@ export const incidentAPI = {
     api.get(`/incidents/${id}/edit-history`),
 };
 
+export const riskAssessmentAPI = {
+  // Categories
+  getCategories:      () => api.get('/risk-assessment/categories'),
+  createCategory:     (data: Record<string, unknown>) => api.post('/risk-assessment/categories', data),
+  updateCategory:     (id: number | string, data: Record<string, unknown>) => api.put(`/risk-assessment/categories/${id}`, data),
+  deleteCategory:     (id: number | string) => api.delete(`/risk-assessment/categories/${id}`),
+  // Items
+  getItems:           (params?: Record<string, string>) => api.get('/risk-assessment/items', { params }),
+  getItem:            (id: number | string) => api.get(`/risk-assessment/items/${id}`),
+  createItem:         (data: Record<string, unknown>) => api.post('/risk-assessment/items', data),
+  updateItem:         (id: number | string, data: Record<string, unknown>) => api.put(`/risk-assessment/items/${id}`, data),
+  deleteItem:         (id: number | string) => api.delete(`/risk-assessment/items/${id}`),
+  // Edit Requests (approval flow)
+  getManagers:        () => api.get('/risk-assessment/managers'),
+  getEditRequests:    (params?: Record<string, string>) => api.get('/risk-assessment/edit-requests', { params }),
+  createEditRequest:  (data: Record<string, unknown>) => api.post('/risk-assessment/edit-requests', data),
+  approveEditRequest: (id: number | string) => api.post(`/risk-assessment/edit-requests/${id}/approve`),
+  rejectEditRequest:  (id: number | string, reason: string) => api.post(`/risk-assessment/edit-requests/${id}/reject`, { reason }),
+  // Revisions
+  getRevisions:       () => api.get('/risk-assessment/revisions'),
+  createRevision:     (data: Record<string, unknown>) => api.post('/risk-assessment/revisions', data),
+  // Seed & Stats
+  seed:               () => api.post('/risk-assessment/seed'),
+  getStats:           () => api.get('/risk-assessment/stats'),
+};
+
 export const msaAPI = {
   list:      (type?: string) => api.get('/msa', { params: type ? { type } : {} }),
   get:       (id: number | string) => api.get(`/msa/${id}`),

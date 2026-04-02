@@ -24,6 +24,7 @@ const calibrationHistoryRoutes = require('./routes/calibrationHistory');
 const maintenanceRoutes = require('./routes/maintenance');
 const incidentRoutes = require('./routes/incidents');
 const msaRoutes = require('./routes/msa');
+const riskAssessmentRoutes = require('./routes/riskAssessment');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4550;
@@ -137,6 +138,7 @@ app.use('/api/calibration-history', calibrationHistoryRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/msa', msaRoutes);
+app.use('/api/risk-assessment', riskAssessmentRoutes);
 
 // POST /api/open-folder — opens a local folder path in Windows Explorer (server-local only)
 const { authRequired } = require('./middleware/auth');
