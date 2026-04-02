@@ -74,6 +74,9 @@ export default function AbnormalSituations() {
   const [rejectId, setRejectId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Delete confirmation modal
+  const [deleteConfirm, setDeleteConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
+
   // edit state
   const [showEdit, setShowEdit] = useState(false);
   const [editRecord, setEditRecord] = useState<IncidentRecord | null>(null);
@@ -338,24 +341,34 @@ export default function AbnormalSituations() {
     } catch { /* ignore */ }
   };
 
-  const handleDeleteAttachment = async (recordId: number, attId: number) => {
-    if (!confirm('Delete this attachment?')) return;
-    try {
-      await incidentAPI.deleteAttachment(recordId, attId);
-      setViewAttachments(prev => prev.filter(a => a.id !== attId));
-    } catch { /* ignore */ }
+  const handleDeleteAttachment = (recordId: number, attId: number) => {
+    setDeleteConfirm({
+      message: 'Delete this attachment?',
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        try {
+          await incidentAPI.deleteAttachment(recordId, attId);
+          setViewAttachments(prev => prev.filter(a => a.id !== attId));
+        } catch { /* ignore */ }
+      },
+    });
   };
 
-  const handleDeleteRecord = async (id: number) => {
-    if (!confirm('Are you sure you want to permanently delete this record? This action cannot be undone.')) return;
-    try {
-      const { data } = await incidentAPI.deleteRecord(id);
-      showToast(data.message || 'Record deleted successfully', 'success');
-      setViewRecord(null);
-      fetchRecords();
-    } catch (e: any) {
-      showToast(e?.response?.data?.error || 'Failed to delete record', 'error');
-    }
+  const handleDeleteRecord = (id: number) => {
+    setDeleteConfirm({
+      message: 'Are you sure you want to permanently delete this record? This action cannot be undone.',
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        try {
+          const { data } = await incidentAPI.deleteRecord(id);
+          showToast(data.message || 'Record deleted successfully', 'success');
+          setViewRecord(null);
+          fetchRecords();
+        } catch (e: any) {
+          showToast(e?.response?.data?.error || 'Failed to delete record', 'error');
+        }
+      },
+    });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -516,8 +529,8 @@ export default function AbnormalSituations() {
                       <Edit3 size={14} className="text-blue-500" />
                     </button>
                     {isAdmin && (
-                      <button onClick={() => handleDeleteRecord(r.id)} className="p-1 rounded hover:bg-red-100" title="Delete record">
-                        <Trash2 size={14} className="text-red-500" />
+                      <button onClick={() => handleDeleteRecord(r.id)} className="p-1 rounded hover:bg-amber-100" title="Delete record">
+                        <Trash2 size={14} className="text-amber-700" />
                       </button>
                     )}
                   </div>
@@ -648,7 +661,7 @@ export default function AbnormalSituations() {
                 </button>
                 {isAdmin && (
                   <button onClick={() => handleDeleteRecord(viewRecord.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-50 transition">
                     <Trash2 size={14} /> Delete
                   </button>
                 )}
@@ -721,8 +734,8 @@ export default function AbnormalSituations() {
                             <Download size={14} className="text-blue-500" />
                           </button>
                           <button onClick={() => handleDeleteAttachment(viewRecord.id, att.id)}
-                            className="p-1 rounded hover:bg-red-100" title="Delete">
-                            <Trash2 size={14} className="text-red-400" />
+                            className="p-1 rounded hover:bg-amber-100" title="Delete">
+                            <Trash2 size={14} className="text-amber-700" />
                           </button>
                         </div>
                       </div>
@@ -937,6 +950,33 @@ export default function AbnormalSituations() {
             @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
             .animate-slide-in { animation: slideIn 0.3s ease-out; }
           `}</style>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="px-6 pt-6 pb-2 flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-slate-800">Confirm Delete</h3>
+                <p className="text-sm text-slate-600 mt-1">{deleteConfirm.message}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4">
+              <button onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition">
+                Cancel
+              </button>
+              <button onClick={deleteConfirm.onConfirm}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
+                OK
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
