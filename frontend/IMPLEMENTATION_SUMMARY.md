@@ -157,7 +157,7 @@ The IATF 16949 Document Change Request system frontend has been fully implemente
 - `react-router-dom`: 7.13.0 (latest)
 
 ### State & API
-- `axios`: 1.13.5 (HTTP client)
+- `axios`: 1.14.0 (HTTP client)
 
 ### UI & Design
 - `tailwindcss`: 3.4 (utility CSS)
