@@ -386,4 +386,14 @@ export const msaAPI = {
   stats:     () => api.get('/msa/stats/summary'),
 };
 
+export const genericEditRequestAPI = {
+  getManagers:    () => api.get('/generic/managers'),
+  getRequests:    (module: string, params?: Record<string, string>) =>
+    api.get('/generic/edit-requests', { params: { module, ...params } }),
+  create:         (data: Record<string, unknown>) => api.post('/generic/edit-requests', data),
+  approve:        (id: number | string) => api.post(`/generic/edit-requests/${id}/approve`),
+  reject:         (id: number | string, reason: string) =>
+    api.post(`/generic/edit-requests/${id}/reject`, { reason }),
+};
+
 export default api;

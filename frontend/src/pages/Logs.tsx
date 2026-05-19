@@ -51,6 +51,14 @@ const ACTION_LABELS: Record<string, string> = {
   DELETE_INCIDENT: '🗑️ ASR Deleted',
   UPLOAD_INCIDENT_ATTACHMENT: '📎 ASR Attachment Uploaded',
   DELETE_INCIDENT_ATTACHMENT: '🗑️ ASR Attachment Deleted',
+  KPI_CSV_UPLOADED: '📊 KPI CSV Uploaded',
+  KPI_CSV_RESET: '🔄 KPI CSV Reset',
+  CREATE_TD_EDIT_REQUEST: '📝 Turtle Diagram Change Request',
+  APPROVE_TD_EDIT_REQUEST: '✅ Turtle Diagram Approved',
+  REJECT_TD_EDIT_REQUEST: '❌ Turtle Diagram Rejected',
+  CREATE_JD_EDIT_REQUEST: '📝 Job Description Change Request',
+  APPROVE_JD_EDIT_REQUEST: '✅ Job Description Approved',
+  REJECT_JD_EDIT_REQUEST: '❌ Job Description Rejected',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -75,6 +83,14 @@ const ACTION_COLORS: Record<string, string> = {
   DELETE_INCIDENT: 'bg-red-100 text-red-800',
   UPLOAD_INCIDENT_ATTACHMENT: 'bg-blue-50 text-blue-700',
   DELETE_INCIDENT_ATTACHMENT: 'bg-orange-50 text-orange-700',
+  KPI_CSV_UPLOADED: 'bg-indigo-50 text-indigo-700',
+  KPI_CSV_RESET: 'bg-amber-50 text-amber-700',
+  CREATE_TD_EDIT_REQUEST: 'bg-teal-50 text-teal-700',
+  APPROVE_TD_EDIT_REQUEST: 'bg-emerald-50 text-emerald-700',
+  REJECT_TD_EDIT_REQUEST: 'bg-red-50 text-red-700',
+  CREATE_JD_EDIT_REQUEST: 'bg-violet-50 text-violet-700',
+  APPROVE_JD_EDIT_REQUEST: 'bg-emerald-50 text-emerald-700',
+  REJECT_JD_EDIT_REQUEST: 'bg-red-50 text-red-700',
 };
 
 export default function Logs() {

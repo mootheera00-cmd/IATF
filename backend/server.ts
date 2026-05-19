@@ -25,6 +25,7 @@ const maintenanceRoutes = require('./routes/maintenance');
 const incidentRoutes = require('./routes/incidents');
 const msaRoutes = require('./routes/msa');
 const riskAssessmentRoutes = require('./routes/riskAssessment');
+const editRequestsRoutes = require('./routes/editRequests');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4550;
@@ -139,6 +140,7 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/msa', msaRoutes);
 app.use('/api/risk-assessment', riskAssessmentRoutes);
+app.use('/api/generic', editRequestsRoutes);
 
 // POST /api/open-folder — opens a local folder path in Windows Explorer (server-local only)
 const { authRequired } = require('./middleware/auth');
@@ -178,6 +180,8 @@ app.delete('/api/shared-buttons/:id', authRequired, (req: any, res: any) => {
 });
 
 // ─── KPI CSV Data API (shared across all users) ───
+const auditService = require('./services/auditService');
+
 app.get('/api/kpi-csv', authRequired, (req: any, res: any) => {
   req.db.get('SELECT file_name, csv_json FROM kpi_csv_data WHERE id = 1', [], (err: any, row: any) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -204,6 +208,10 @@ app.post('/api/kpi-csv', authRequired, (req: any, res: any) => {
     [name, jsonStr, req.user.id],
     function (this: any, err: any) {
       if (err) return res.status(500).json({ error: err.message });
+      auditService.recordEvent('KPIData', 1, req.user.id, 'KPI_CSV_UPLOADED', {
+        file_name: name,
+        record_count: data.length,
+      }).catch(() => {});
       res.json({ success: true });
     }
   );
@@ -212,6 +220,7 @@ app.post('/api/kpi-csv', authRequired, (req: any, res: any) => {
 app.delete('/api/kpi-csv', authRequired, (req: any, res: any) => {
   req.db.run('DELETE FROM kpi_csv_data WHERE id = 1', [], function (this: any, err: any) {
     if (err) return res.status(500).json({ error: err.message });
+    auditService.recordEvent('KPIData', 1, req.user.id, 'KPI_CSV_RESET', {}).catch(() => {});
     res.json({ success: true });
   });
 });

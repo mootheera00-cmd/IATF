@@ -1,5 +1,5 @@
  # Dependencies
-node_modules/
+**/node_modules/
 .venv/
 
 # Build output
@@ -63,6 +63,19 @@ Plan HUB/stdout.log
 Plan HUB/stderr.log
 Plan PT/stdout.log
 Plan PT/stderr.log
+
+# Generated / tool output
+graphify-out/
+
+# Confidential data files (company data, exports, uploaded source files)
+exported_data*.csv
+IATF_KPI.xlsx
+backend/uploads/*.xlsx
+backend/uploads/*.xls
+
+# Sensitive documents at root
+*.xlsx
+*.xls
 
 # Misc
 *.pptx

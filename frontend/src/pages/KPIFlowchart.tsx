@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -34,7 +35,19 @@ const EVALUATION_TARGET = 15;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function KPIFlowchart() {
-  const [activeTab, setActiveTab] = useState<'reports' | 'leadtime' | 'evaluation'>('leadtime');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'reports' | 'leadtime' | 'evaluation' | null;
+  const validTabs = ['reports', 'leadtime', 'evaluation'] as const;
+  const [activeTab, setActiveTab] = useState<'reports' | 'leadtime' | 'evaluation'>(
+    tabParam && validTabs.includes(tabParam) ? tabParam : 'leadtime'
+  );
+
+  // Sync tab when URL param changes (e.g. navigating from Dashboard)
+  useEffect(() => {
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // --- Scatter click state ---
   type PointInfo = { r_id: string; x: string; y: number; done: boolean; cat: string; grp: string; finish: string; remark: string };

@@ -33,6 +33,10 @@ import PowertrainPlan from './pages/PowerTransmissionPlan';
 import DocumentRepository from './pages/DocumentRepository';
 import OtherPage from './pages/OtherPage';
 import AbnormalSituations from './pages/AbnormalSituations';
+import JobDescriptions from './pages/JobDescriptions';
+import TurtleDiagram from './pages/TurtleDiagram';
+import IATFDiagram from './pages/IATFDiagram';
+import DataFlowDiagram from './pages/DataFlowDiagram';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -292,6 +296,39 @@ function AppRoutes() {
       />
 
       <Route
+        path="/safety/turtle-diagram"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <TurtleDiagram />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/flowchart/iatf-diagram"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <IATFDiagram />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/flowchart/data-flow"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <DataFlowDiagram />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/flowchart/kpi"
         element={
           <ProtectedRoute>
@@ -401,6 +438,17 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <AbnormalSituations />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/other/job-descriptions"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <JobDescriptions />
             </Layout>
           </ProtectedRoute>
         }

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell,
   ClipboardCheck,
@@ -17,6 +18,7 @@ import {
   ListChecks,
   ShieldCheck,
   Briefcase,
+  Hexagon,
 } from "lucide-react";
 
 // ─── Shared step definitions ──────────────────────────────────────────────────
@@ -985,6 +987,7 @@ const statusFlow = [
 ];
 
 export default function WorkflowFlowchart() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"new" | "change" | "reup">("new");
   const [popupStep, setPopupStep] = useState<FlowStep | null>(null);
   const current = TABS.find((t) => t.key === activeTab)!;
@@ -996,13 +999,33 @@ export default function WorkflowFlowchart() {
         <RolePopup step={popupStep} onClose={() => setPopupStep(null)} />
       )}
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <GitPullRequest size={20} className="text-indigo-500" /> Workflow for Document Control
-        </h1>
-        <p className="text-slate-400 text-[11px] mt-0">
-          Visual representation of the document control workflows.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <GitPullRequest size={20} className="text-indigo-500" /> Workflow for Document Control
+          </h1>
+          <p className="text-slate-400 text-[11px] mt-0">
+            Visual representation of the document control workflows.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* IATF Diagram Button */}
+          <button
+            onClick={() => navigate('/flowchart/iatf-diagram')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+          >
+            <ShieldCheck size={16} />
+            IATF Diagram
+          </button>
+          {/* High-Level Data Flow Diagram Button */}
+          <button
+            onClick={() => navigate('/flowchart/data-flow')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+          >
+            <Briefcase size={16} />
+            Data Flow Diagram
+          </button>
+        </div>
       </div>
 
       {/* Status Flow Strip — muted reference legend */}

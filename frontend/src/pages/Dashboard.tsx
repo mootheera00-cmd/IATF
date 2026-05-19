@@ -1,4 +1,4 @@
-﻿// frontend/src/pages/Dashboard.tsx
+// frontend/src/pages/Dashboard.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { dcrAPI, documentAPI, calibrationAPI, inHouseCalibrationAPI, maintenanceAPI } from '../api';
@@ -158,7 +158,7 @@ export default function Dashboard() {
 
   const openActionCount = myActions.filter((i: any)=>!finishedSet.has(String(i.status||'').toLowerCase())).length;
 
-  // ─── KPI Mini Charts Data ─────────────────────────────────────────────────
+  // --- KPI Mini Charts Data -------------------------------------------------
   const KPI_MONTHS = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
   const KPI_REVISED: (number|null)[] = [0,0,0,0,0,0,0,0,0,0,null,null];
   const KPI_EVAL = {
@@ -192,11 +192,11 @@ export default function Dashboard() {
     const groups: Record<string,{x:string;y:number;r_id:string;done:boolean}[]> = {};
     kpiProcessed.forEach(r => { const k=`${r.g}-${r.c}`; if(!groups[k]) groups[k]=[]; groups[k].push({x:r.a,y:r.elapsed,r_id:r.r,done:r.done}); });
     const COLORS: Record<string,{bg:string;border:string}> = { 'H-I':{bg:'rgba(99,102,241,0.75)',border:'#6366f1'},'H-W':{bg:'rgba(59,130,246,0.75)',border:'#3b82f6'},'P-I':{bg:'rgba(249,115,22,0.75)',border:'#f97316'},'P-W':{bg:'rgba(234,179,8,0.75)',border:'#eab308'} };
-    const LABELS: Record<string,string> = { 'H-I':'HUB–Inv','H-W':'HUB–War','P-I':'PT–Inv','P-W':'PT–War' };
+    const LABELS: Record<string,string> = { 'H-I':'HUB�Inv','H-W':'HUB�War','P-I':'PT�Inv','P-W':'PT�War' };
     const datasets = Object.entries(groups).map(([k,pts]) => { const c=COLORS[k]||{bg:'rgba(148,163,184,0.7)',border:'#94a3b8'}; return { label:LABELS[k]||k, data:pts, backgroundColor:pts.map(p=>p.done?c.bg:c.bg.replace('0.75','0.3')), borderColor:pts.map(p=>p.done?c.border:c.border+'66'), borderWidth:1, pointRadius:3, pointHoverRadius:5, pointStyle:pts.map(p=>p.done?'circle' as const:'rectRot' as const) }; });
     return { xLabels, datasets };
   }, [kpiProcessed]);
-  const miniScatterData = { labels: kpiScatterDatasets.xLabels, datasets: [...kpiScatterDatasets.datasets, { label:`Target ≤${LEAD_TIME_TARGET}d`, data:kpiScatterDatasets.xLabels.map(x=>({x,y:LEAD_TIME_TARGET})), borderColor:'rgb(239,68,68)', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,2], pointRadius:0, showLine:true, type:'line' as const }] };
+  const miniScatterData = { labels: kpiScatterDatasets.xLabels, datasets: [...kpiScatterDatasets.datasets, { label:`Target =${LEAD_TIME_TARGET}d`, data:kpiScatterDatasets.xLabels.map(x=>({x,y:LEAD_TIME_TARGET})), borderColor:'rgb(239,68,68)', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,2], pointRadius:0, showLine:true, type:'line' as const }] };
   const miniScatterOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => { const p=ctx.raw; if(!p.r_id) return 'Target'; return `${p.r_id}: ${p.y}d`; } } } }, scales: { x: { type: 'category' as const, ticks: { maxRotation: 45, font: { size: 7 }, maxTicksLimit: 12 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { font: { size: 9 } }, grid: { color: '#f1f5f9' } } } };
 
   // Chart 3: Evaluation
@@ -213,7 +213,7 @@ export default function Dashboard() {
   const newDcrCount = useMemo(() => countNew('dcr', allDcrs, 'created_at'), [allDcrs]);
   const totalNewCount = newDocCount + newDcrCount;
 
-  // Items for What's New feed — newest first, limit 20
+  // Items for What's New feed � newest first, limit 20
   const whatsNewItems = useMemo(() => {
     const docs = getNewItems('doc', allDocs, 'created_at').map((d: any) => ({
       type: 'doc' as const,
@@ -227,7 +227,7 @@ export default function Dashboard() {
       type: 'dcr' as const,
       id: d.id,
       title: d.document_title || d.title || `Request #${String(d.id).padStart(4,'0')}`,
-      subtitle: `#${String(d.id).padStart(4,'0')} · ${d.status || ''}`,
+      subtitle: `#${String(d.id).padStart(4,'0')} � ${d.status || ''}`,
       date: d.created_at || d.submitted_at,
       to: `/dcr/${d.id}`,
     }));
@@ -275,7 +275,7 @@ export default function Dashboard() {
           <h1 className="text-base font-bold text-slate-800">
             {greeting()}, {(user as any)?.full_name || (user as any)?.username || 'User'}
           </h1>
-          <span className="text-slate-400 text-xs hidden sm:inline">— activity summary & system overview</span>
+          <span className="text-slate-400 text-xs hidden sm:inline">� activity summary & system overview</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -296,7 +296,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── What's New Panel ───────────────────────────────────────────── */}
+      {/* -- What's New Panel --------------------------------------------- */}
       {whatsNewOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-end p-4 pt-16 pointer-events-none">
           <div className="pointer-events-auto w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[80vh]">
@@ -636,9 +636,9 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Row 3: KPI Monitoring — all three charts */}
+        {/* Row 3: KPI Monitoring � all three charts */}
         <div className="space-y-3">
-          <Link to="/kpi" className="flex items-center gap-2 group">
+          <Link to="/flowchart/kpi" className="flex items-center gap-2 group">
             <BarChart3 size={16} className="text-indigo-500" />
             <h3 className="font-semibold text-sm text-slate-800">KPI Monitoring</h3>
             <span className="flex items-center gap-1 text-indigo-600 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
@@ -648,7 +648,7 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* KPI Lead Time Scatter */}
-            <Link to="/kpi" className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-indigo-300 transition-all">
+            <Link to="/flowchart/kpi?tab=leadtime" className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-indigo-300 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><Clock size={12} className="text-indigo-500" /> Lead Time</h4>
                 <span className={`text-xs font-bold ${kpiAvgElapsed <= LEAD_TIME_TARGET ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -658,29 +658,29 @@ export default function Dashboard() {
               <div style={{ height: 180 }}>
                 <Scatter data={miniScatterData as any} options={miniScatterOpts as any} />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Target ≤ {LEAD_TIME_TARGET} business days</p>
+              <p className="text-[10px] text-slate-400 mt-1">Target = {LEAD_TIME_TARGET} business days</p>
             </Link>
 
             {/* KPI Evaluation */}
-            <Link to="/kpi" className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-emerald-300 transition-all">
+            <Link to="/flowchart/kpi?tab=evaluation" className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-emerald-300 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><TrendingUp size={12} className="text-emerald-500" /> KPI Evaluation</h4>
               </div>
               <div style={{ height: 180 }}>
                 <Bar data={miniEvalData as any} options={miniEvalOpts as any} />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">HUB + PT evaluation % — Target {EVAL_TARGET}%</p>
+              <p className="text-[10px] text-slate-400 mt-1">HUB + PT evaluation % � Target {EVAL_TARGET}%</p>
             </Link>
 
             {/* Revised Reports */}
-            <Link to="/kpi" className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-violet-300 transition-all">
+            <Link to="/flowchart/kpi?tab=reports" className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-violet-300 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><FileText size={12} className="text-violet-500" /> Revised Reports</h4>
               </div>
               <div style={{ height: 180 }}>
                 <Bar data={miniRevisedData} options={miniBarOpts as any} />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Document revisions issued per month — FY 2025-2026</p>
+              <p className="text-[10px] text-slate-400 mt-1">Document revisions issued per month � FY 2025-2026</p>
             </Link>
           </div>
         </div>

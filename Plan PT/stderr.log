@@ -1,4 +1,5 @@
-Traceback (most recent call last):
-  File "D:\Moo-2026\14 IATF\V4\NSK-IATF-DocControl c\Plan PT\app.py", line 12, in <module>
-    from flask import Flask, send_from_directory, jsonify, request
-ModuleNotFoundError: No module named 'flask'
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:4019
+ * Running on http://133.124.150.22:4019
+Press CTRL+C to quit

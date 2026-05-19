@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Lock, AlertTriangle, Folder, Download } from 'lucide-react';
+import { Plus, X, Lock, AlertTriangle, Folder, Download, Briefcase } from 'lucide-react';
 import axios from 'axios';
 
 interface CustomButton {
@@ -14,10 +14,12 @@ const authHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.ge
 
 const defaultButtons = [
   { id: 'abnormal', label: 'Abnormal Situations Record', path: '/other/abnormal-situations', active: true },
+  { id: 'job-desc', label: 'Job Description', path: '/other/job-descriptions', active: true },
 ];
 
 const colorMap: Record<string, string> = {
   abnormal: 'from-amber-500 to-orange-600',
+  'job-desc': 'from-indigo-500 to-blue-600',
 };
 
 const customColors = [
@@ -97,6 +99,7 @@ export default function OtherPage() {
             {!btn.active && <Lock size={14} className="absolute top-3 right-3 opacity-60" />}
             <div className="flex items-center gap-2 mb-1">
               {btn.id === 'abnormal' && <AlertTriangle size={18} className="opacity-80 shrink-0" />}
+              {btn.id === 'job-desc' && <Briefcase size={18} className="opacity-80 shrink-0" />}
               <h3 className="font-semibold text-base leading-tight">{btn.label}</h3>
             </div>
             {btn.active && <p className="text-xs opacity-75">Click to open</p>}
